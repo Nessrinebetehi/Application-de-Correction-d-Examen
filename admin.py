@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 from tkcalendar import DateEntry
+from tkinter import messagebox
 # Create the main window
 window = tk.Tk()
 window.title("Admin window")
@@ -77,33 +78,139 @@ option_entry = tk.Entry(option_page, font=("Arial", 12), bd=2, relief="groove", 
 option_entry.place(x=190, y=60, width=330, height=36)
 
 tk.Label(option_page, text="Name of posts", font=("Arial", 14), bg="white").place(x=24, y=110)
-salle_options = ["Salle 1", "Salle 2", "Salle 3"]
-salle_combobox = ttk.Combobox(option_page, values=salle_options, font=("Arial", 14), state="readonly")
-salle_combobox.place(x=190, y=110, width=120, height=36)
-salle_combobox.current(0)
+name_post_entry = tk.Entry(option_page, font=("Arial", 12), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
+name_post_entry.place(x=190, y=110, width=120, height=36)
 
 
 tk.Label(option_page, text="Number of exams", font=("Arial", 14), bg="white").place(x=24, y=160)
-salle_options = ["Salle 1", "Salle 2", "Salle 3"]
-salle_combobox = ttk.Combobox(option_page, values=salle_options, font=("Arial", 14), state="readonly")
-salle_combobox.place(x=190, y=160, width=120, height=36)
-salle_combobox.current(0)
+nbr_exams_options = ["1", "2", "3","4","5","6"]
+nbr_exams_combobox = ttk.Combobox(option_page, values=nbr_exams_options, font=("Arial", 14), state="readonly")
+nbr_exams_combobox.place(x=190, y=160, width=120, height=36)
+nbr_exams_combobox.current(0)
 
 def add_exams_window():
+    num_exams = int(nbr_exams_combobox.get())  # الحصول على عدد الامتحانات المختار
+
     add_exam_window = tk.Toplevel(window)
     add_exam_window.title("Add Exam")
-    add_exam_window.geometry("730x320")  
+    add_exam_window.geometry("730x320")
     add_exam_window.configure(bg="white")
+
+    tk.Label(add_exam_window, text="Module", bg="white").place(x=54, y=43)
+    tk.Label(add_exam_window, text="Coefficient", bg="white").place(x=374, y=43)
+
+    module_entry = tk.Entry(add_exam_window, width=25)
+    module_entry.place(x=120, y=39,width=217,height=27)
+
+    coeff_entry = tk.Entry(add_exam_window, width=5)
+    coeff_entry.place(x=455, y=39,width=78,height=27)
+
+    columns = ("Module", "Coefficient")
+    table = ttk.Treeview(add_exam_window, columns=columns, show="headings", height=8)
+
+    table.heading("Module", text="Module")
+    table.heading("Coefficient", text="Coefficient")
+
+    table.column("Module", width=300, anchor="center")
+    table.column("Coefficient", width=100, anchor="center")
+
+    table.place(x=14, y=92, width=705, height=160)
+
+    def add_item():
+        if len(table.get_children()) < num_exams:  # التحقق من العدد المسموح
+            module = module_entry.get().strip()
+            coeff = coeff_entry.get().strip()
+
+            if module and coeff.isdigit():
+                table.insert("", "end", values=(module, coeff))
+                module_entry.delete(0, tk.END)
+                coeff_entry.delete(0, tk.END)
+            else:
+                messagebox.showerror("Error", "Please enter a valid Module and Coefficient!")
+        else:
+            messagebox.showwarning("Warning", f"You can only add {num_exams} exams!")
+
+    def delete_item():
+        selected_item = table.selection()
+        if selected_item:
+            for item in selected_item:
+                table.delete(item)
+        else:
+            messagebox.showwarning("Warning", "Please select an item to delete.")
+
+    add_button = tk.Button(add_exam_window, text="Add", bg="#00B400", fg="white", command=add_item, width=8,bd=0)
+    add_button.place(x=590, y=39,width=91,height=27)
+
+    delete_button = tk.Button(add_exam_window, text="Delete", bg="#D10801", fg="white", command=delete_item, width=10,bd=0)
+    delete_button.place(x=411, y=280,width=147,height=27)
+
+    done_button = tk.Button(add_exam_window, text="Done", bg="#00B400", fg="white", command=add_exam_window.destroy, width=10,bd=0)
+    done_button.place(x=570, y=280,width=147,height=27)
+
     
 tk.Label(option_page, text="Add exams", font=("Arial", 14), bg="white").place(x=24, y=227)
 add_exams_btn=tk.Button(option_page,text="Add",font=("Arial", 16 ), bg="#5D8BCD",fg="white",bd=0,command=add_exams_window)
 add_exams_btn.place(x=190, y=230, width=148, height=27)
 
 def add_salles_window():
-    add_exam_window = tk.Toplevel(window)
-    add_exam_window.title("Add Exam")
-    add_exam_window.geometry("730x320")  
-    add_exam_window.configure(bg="white")
+    add_salle_window = tk.Toplevel(window)
+    add_salle_window.title("Add Salles")
+    add_salle_window.geometry("730x320")
+    add_salle_window.configure(bg="white")
+
+    # تسميات الإدخال
+    tk.Label(add_salle_window, text="Salle name", bg="white").place(x=54, y=43)
+    tk.Label(add_salle_window, text="Capacity", bg="white").place(x=374, y=43)
+
+    # حقول الإدخال
+    salle_entry = tk.Entry(add_salle_window, width=25)
+    salle_entry.place(x=120, y=39, width=217, height=27)
+
+    capacity_entry = tk.Entry(add_salle_window, width=5)
+    capacity_entry.place(x=455, y=39, width=78, height=27)
+
+    # جدول عرض القاعات
+    columns = ("Salle name", "Capacity")
+    table = ttk.Treeview(add_salle_window, columns=columns, show="headings", height=8)
+
+    table.heading("Salle name", text="Salle name")
+    table.heading("Capacity", text="Capacity")
+
+    table.column("Salle name", width=300, anchor="center")
+    table.column("Capacity", width=100, anchor="center")
+
+    table.place(x=14, y=92, width=705, height=160)
+
+    # دالة إضافة القاعات
+    def add_item():
+        salle = salle_entry.get().strip()
+        capacity = capacity_entry.get().strip()
+
+        if salle and capacity.isdigit():  # التأكد من صحة الإدخال
+            table.insert("", "end", values=(salle, capacity))
+            salle_entry.delete(0, tk.END)
+            capacity_entry.delete(0, tk.END)
+        else:
+            messagebox.showerror("Error", "Please enter a valid Salle name and Capacity!")
+
+    # دالة حذف القاعات
+    def delete_item():
+        selected_item = table.selection()
+        if selected_item:
+            for item in selected_item:
+                table.delete(item)
+        else:
+            messagebox.showwarning("Warning", "Please select an item to delete.")
+
+    # الأزرار
+    add_button = tk.Button(add_salle_window, text="Add", bg="#00B400", fg="white", command=add_item, width=8, bd=0)
+    add_button.place(x=590, y=39, width=91, height=27)
+
+    delete_button = tk.Button(add_salle_window, text="Delete", bg="#D10801", fg="white", command=delete_item, width=10, bd=0)
+    delete_button.place(x=411, y=280, width=147, height=27)
+
+    done_button = tk.Button(add_salle_window, text="Done", bg="#00B400", fg="white", command=add_salle_window.destroy, width=10, bd=0)
+    done_button.place(x=570, y=280, width=147, height=27)
 
 
 tk.Label(option_page, text="Add salles", font=("Arial", 14), bg="white").place(x=24, y=275)
@@ -166,7 +273,60 @@ all_print_btn.place(x=163, y=110, width=148, height=27)
 delete_pr_btn=tk.Button(professors_page,text="Delete",font=("Arial", 12 ), bg="#D10801",fg="white",bd=0)
 delete_pr_btn.place(x=460, y=300, width=148, height=27)
 
-add_pr_btn=tk.Button(professors_page,text="Add Prof",font=("Arial", 12 ), bg="#00B400",fg="white",bd=0)
+def add_prof_window():
+    add_prof_window = tk.Toplevel(window)
+    add_prof_window.title("Add Professors")
+    add_prof_window.geometry("800x340")  
+    add_prof_window.configure(bg="white")
+     # تسميات الإدخال
+    tk.Label(add_prof_window, text="Name", bg="white", font=("Arial", 12)).place(x=28, y=45)
+    tk.Label(add_prof_window, text="Surname", bg="white", font=("Arial", 12)).place(x=28, y=98)
+    tk.Label(add_prof_window, text="Date of birthday", bg="white", font=("Arial", 12)).place(x=28, y=151)
+    tk.Label(add_prof_window, text="Username", bg="white", font=("Arial", 12)).place(x=28, y=204)
+    tk.Label(add_prof_window, text="Password", bg="white", font=("Arial", 12)).place(x=28, y=257)
+
+    # حقول الإدخال
+    name_entry = tk.Entry(add_prof_window, font=("Arial", 12),bd=2, relief="groove")
+    name_entry.place(x=166, y=36, width=235, height=36)
+
+    surname_entry = tk.Entry(add_prof_window, font=("Arial", 12),bd=2, relief="groove")
+    surname_entry.place(x=166, y=89,width=235, height=36)
+
+    dob_entry = DateEntry(add_prof_window, font=("Arial", 12), bd=2, width=15, date_pattern="yyyy-mm-dd", relief="groove")
+    dob_entry.place(x=166, y=142, width=235, height=36)
+
+    username_entry = tk.Entry(add_prof_window, font=("Arial", 12),bd=2, relief="groove")
+    username_entry.place(x=166, y=195,width=235, height=36)
+
+    password_entry = tk.Entry(add_prof_window, font=("Arial", 12),bd=2, relief="groove")
+    password_entry.place(x=166, y=248,width=235, height=36)
+
+    # وظائف الأزرار
+    def cancel():
+        add_prof_window.destroy()
+
+    def done():
+        name = name_entry.get().strip()
+        surname = surname_entry.get().strip()
+        dob = dob_entry.get().strip()
+        username = username_entry.get().strip()
+        password = password_entry.get().strip()
+
+        if name and surname and dob and username and password:
+            messagebox.showinfo("Success", "Professor added successfully!")
+            add_prof_window.destroy()
+        else:
+            messagebox.showerror("Error", "Please fill in all fields.")
+
+    # الأزرار
+    cancel_button = tk.Button(add_prof_window, text="Cancel", bg="#D10801", fg="white", font=("Arial", 12), bd=0, command=cancel)
+    cancel_button.place(x=472, y=299, width=148, height=27)
+
+    done_button = tk.Button(add_prof_window, text="Done", bg="#00B400", fg="white", font=("Arial", 12), bd=0, command=done)
+    done_button.place(x=634, y=299, width=148, height=27)
+
+# زر فتح نافذة إضافة الأستاذ
+add_pr_btn = tk.Button(professors_page, text="Add Prof", font=("Arial", 12), bg="#00B400", fg="white", bd=0, command=add_prof_window)
 add_pr_btn.place(x=630, y=300, width=148, height=27)
 #profs page /////////////////////////////////////////////////////////////////////////////////////
 
