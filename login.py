@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
+from db_connection import connect_to_database
 import subprocess  
 
 # إنشاء النافذة
@@ -20,12 +21,13 @@ y_position = int((screen_height - window_height) / 2)
 window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
 # تحميل الصور
-bg_img = Image.open("background1.png")
+bg_img = Image.open(r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen\background.png")
+
 photo = ImageTk.PhotoImage(bg_img)
 label1 = tk.Label(window, image=photo)
 label1.place(x=-5, y=0)  
 
-logo = Image.open("Logo.png")
+logo = Image.open(r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen/Logo.png")
 photo2 = ImageTk.PhotoImage(logo)
 label2 = tk.Label(window, image=photo2)
 label2.place(x=319, y=12)  
@@ -48,19 +50,43 @@ password_entry.place(x=435, y=302, width=242, height=36)
 
 # دالة تسجيل الدخول
 def on_login():
-    username = username_entry.get()
-    password = password_entry.get()
+    username = username_entry.get().strip()
+    password = password_entry.get().strip()
 
     if not username or not password:
-        tk.messagebox.showerror("Error", "Please enter both username and password.")
-    else:
-        # Basic login validation (for demonstration purposes)
-        if username == "admin" and password == "password":
-            window.destroy()  # إغلاق نافذة تسجيل الدخول
-            subprocess.run(["python","admin.py"], check=True)
-        else:
-            tk.messagebox.showerror("Error", "Invalid username or password.")
+        messagebox.showerror("Error", "Please enter both username and password.")
+        return
 
+    try:
+        db = connect_to_database()
+        if not db:
+            messagebox.showerror("Database Error", "Failed to connect to the database.")
+            return
+
+        cursor = db.cursor()
+
+        # البحث في جدول المسؤولين
+        cursor.execute("SELECT * FROM responsables WHERE username = %s AND password = %s", (username, password))
+        responsable = cursor.fetchone()
+
+        # البحث في جدول الأساتذة
+        cursor.execute("SELECT * FROM professors WHERE username = %s AND password = %s", (username, password))
+        professor = cursor.fetchone()
+
+        cursor.close()
+        db.close()
+
+        if responsable:
+            window.destroy()
+            subprocess.run(["python", r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen/admin.py"], check=True)
+        elif professor:
+            window.destroy()
+            subprocess.run(["python", r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen/Professor.py"], check=True)
+        else:
+            messagebox.showerror("Error", "Invalid username or password.")
+
+    except Exception as err:
+        messagebox.showerror("Error", f"An error occurred: {err}")
 # زر تسجيل الدخول
 login_button = tk.Button(
     window, 

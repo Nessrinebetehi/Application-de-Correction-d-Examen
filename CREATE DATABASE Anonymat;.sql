@@ -8,10 +8,10 @@ CREATE TABLE responsables (
     surname VARCHAR(50) NOT NULL,     
     birthday DATE NOT NULL,           
     username VARCHAR(50) UNIQUE NOT NULL, 
-    password VARCHAR(255) NOT NULL    
+    password VARCHAR(255) NOT NULL 
 );
 
-CREATE TABLE correcteurs (
+CREATE TABLE professors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL,        
     surname VARCHAR(50) NOT NULL,     
@@ -34,17 +34,27 @@ CREATE TABLE candidats (
 
 CREATE TABLE modules (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    candidat_id INT,                   
+    candidat_id INT NOT NULL,
     module_name VARCHAR(100) NOT NULL,  
     grade1 DECIMAL(5, 2) NOT NULL,
     grade2 DECIMAL(5, 2) NOT NULL,
     grade3 DECIMAL(5, 2) NOT NULL,
-    coefficient DECIMAL(3, 2) NOT NULL,
-    FOREIGN KEY (candidat_id) REFERENCES candidats(id)
+    coefficient DECIMAL(4, 2) NOT NULL,
+    FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE CASCADE
+);
+
+CREATE TABLE exam (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    institue_name VARCHAR(50) NOT NULL,
+    exam_option VARCHAR(50) NOT NULL,
+    nbr_salles INT NOT NULL, 
+    nbr_module INT NOT NULL, 
+    name_post VARCHAR(50) NOT NULL
 );
 
 CREATE TABLE salles (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    code_salle VARCHAR(50) UNIQUE NOT NULL,
-    capacity INT NOT NULL                  
+    code_salle VARCHAR(50) PRIMARY KEY,
+    name_salle VARCHAR(10) UNIQUE NOT NULL,
+    capacity INT NOT NULL
 );
+

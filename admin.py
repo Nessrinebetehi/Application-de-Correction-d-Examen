@@ -89,14 +89,25 @@ salle_combobox = ttk.Combobox(option_page, values=salle_options, font=("Arial", 
 salle_combobox.place(x=190, y=160, width=120, height=36)
 salle_combobox.current(0)
 
+def add_exams_window():
+    add_exam_window = tk.Toplevel(window)
+    add_exam_window.title("Add Exam")
+    add_exam_window.geometry("730x320")  
+    add_exam_window.configure(bg="white")
+    
 tk.Label(option_page, text="Add exams", font=("Arial", 14), bg="white").place(x=24, y=227)
-add_exams_btn=tk.Button(option_page,text="Add",font=("Arial", 16 ), bg="#5D8BCD",fg="white",bd=0)
+add_exams_btn=tk.Button(option_page,text="Add",font=("Arial", 16 ), bg="#5D8BCD",fg="white",bd=0,command=add_exams_window)
 add_exams_btn.place(x=190, y=230, width=148, height=27)
 
+def add_salles_window():
+    add_exam_window = tk.Toplevel(window)
+    add_exam_window.title("Add Exam")
+    add_exam_window.geometry("730x320")  
+    add_exam_window.configure(bg="white")
 
 
 tk.Label(option_page, text="Add salles", font=("Arial", 14), bg="white").place(x=24, y=275)
-add_salles_btn=tk.Button(option_page,text="Add",font=("Arial", 16 ), bg="#5D8BCD",fg="white",bd=0)
+add_salles_btn=tk.Button(option_page,text="Add",font=("Arial", 16 ), bg="#5D8BCD",fg="white",bd=0,command=add_salles_window)
 add_salles_btn.place(x=190, y=275, width=148, height=27)
 
 op_done_btn=tk.Button(option_page,text="Done",font=("Arial", 14 ), bg="#00B400",fg="white",bd=0)
