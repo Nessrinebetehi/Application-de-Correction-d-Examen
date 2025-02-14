@@ -78,10 +78,10 @@ def on_login():
 
         if responsable:
             window.destroy()
-            subprocess.run(["python", r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen/admin.py"], check=True)
+            subprocess.run(["python", "background.png"], check=True)
         elif professor:
             window.destroy()
-            subprocess.run(["python", r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen/Professor.py"], check=True)
+            subprocess.run(["python", "Logo.png"], check=True)
         else:
             messagebox.showerror("Error", "Invalid username or password.")
 
