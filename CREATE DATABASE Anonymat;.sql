@@ -7,7 +7,7 @@ CREATE TABLE responsables (
     name VARCHAR(50) NOT NULL,      
     surname VARCHAR(50) NOT NULL,     
     birthday DATE NOT NULL,           
-    username VARCHAR(50) UNIQUE NOT NULL, 
+    email VARCHAR(100) UNIQUE NOT NULL, 
     password VARCHAR(255) NOT NULL 
 );
 
@@ -16,9 +16,10 @@ CREATE TABLE professors (
     name VARCHAR(50) NOT NULL,        
     surname VARCHAR(50) NOT NULL,     
     birthday DATE NOT NULL,            
-    username VARCHAR(50) UNIQUE NOT NULL, 
+    email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL    
 );
+
 
 CREATE TABLE candidats (
     id INT AUTO_INCREMENT PRIMARY KEY, 

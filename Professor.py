@@ -61,33 +61,18 @@ Corrections_page = tk.Frame(window, bg="white", width=800, height=460)
 About_page = tk.Frame(window, bg="white", width=800, height=460)
 
 #Correction Page ////////////////////////////////////////////////////////////////////////////////
-tk.Label(Corrections_page, text="List of grades", font=("Arial", 14), bg="white").place(x=24, y=34)
-import_btn = tk.Button(Corrections_page, text="import", font=("Arial", 16), bg="#D9D9D9",bd=0)
+tk.Label(Corrections_page, text="Students List", font=("Arial", 14), bg="white").place(x=24, y=34)
+import_btn = tk.Button(Corrections_page, text="Export", font=("Arial", 12), bg="#D9D9D9",bd=0)
 import_btn.place(x=170, y=36, width=162, height=26)
 
-tk.Label(Corrections_page, text="Add manual :", font=("Arial", 16, "bold"), bg="white").place(x=24, y=95)
+separator = tk.Frame(Corrections_page, bg="#D9D9D9", height=2, width=360)  # خط فاصل بلون رمادي
+separator.place(x=216, y=96)  # تحديد الموقع تحت زر Import مباشرة
 
-tk.Label(Corrections_page, text="Code", font=("Arial", 14), bg="white").place(x=24, y=160)
-Code_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-Code_entry.place(x=105, y=158, width=175, height=36)
+tk.Label(Corrections_page, text="List of grades", font=("Arial", 14), bg="white").place(x=24, y=134)
+import_btn = tk.Button(Corrections_page, text="Import", font=("Arial", 12), bg="#D9D9D9",bd=0)
+import_btn.place(x=170, y=134, width=162, height=26)
 
-tk.Label(Corrections_page, text="Salle", font=("Arial", 14), bg="white").place(x=301, y=160)
-salle_options = ["Salle 1", "Salle 2", "Salle 3"]
-salle_combobox = ttk.Combobox(Corrections_page, values=salle_options, font=("Arial", 14), state="readonly")
-salle_combobox.place(x=360, y=158, width=120, height=36)
-salle_combobox.current(0)
-
-tk.Label(Corrections_page, text="Module", font=("Arial", 14), bg="white").place(x=24, y=230)
-module_options = ["Math", "Physics", "Chemistry"]
-module_combobox = ttk.Combobox(Corrections_page, values=module_options, font=("Arial", 14), state="readonly")
-module_combobox.place(x=105, y=228, width=175, height=36)
-module_combobox.current(0)
-
-tk.Label(Corrections_page, text="Note", font=("Arial", 14), bg="white").place(x=301, y=230)
-Note_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-Note_entry.place(x=360, y=228, width=83, height=36)
-
-done_btn=tk.Button(Corrections_page,text="Done",font=("Arial", 16 ), bg="#00B400",fg="white",bd=0)
+done_btn=tk.Button(Corrections_page,text="Done",font=("Arial", 12 ), bg="#00B400",fg="white",bd=0)
 done_btn.place(x=630, y=300, width=148, height=27)
 #Correction Page ////////////////////////////////////////////////////////////////////////////////
 

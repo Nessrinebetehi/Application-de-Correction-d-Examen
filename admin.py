@@ -30,7 +30,7 @@ menu_frame = tk.Frame(window, bg="#5A7EC7", height=40)
 menu_frame.pack(fill=tk.X, side=tk.TOP)
 
 # Define button names
-menu_buttons = ["Option","Students list", "Professors list", "Attendee list", "Absences list", "Results"]
+menu_buttons = ["Option","Students list", "Professors list", "Attendee list", "Results"]
 button_width = 15
 
 # Create a dictionary to store pages
@@ -64,7 +64,7 @@ for idx, text in enumerate(menu_buttons):
 option_page = tk.Frame(window, bg="white", width=800, height=460)
 students_page = tk.Frame(window, bg="white", width=800, height=460)
 professors_page = tk.Frame(window, bg="white", width=800, height=460)
-absences_page = tk.Frame(window, bg="white", width=800, height=460)
+
 attendee_page = tk.Frame(window, bg="white", width=800, height=460)
 results_page = tk.Frame(window, bg="white", width=800, height=460)
 
@@ -258,20 +258,18 @@ st_done_btn.place(x=630, y=300, width=148, height=27)
 #students page /////////////////////////////////////////////////////////////////////////////////////
 
 #profs page /////////////////////////////////////////////////////////////////////////////////////
-tk.Label(professors_page, text="Select Prof", font=("Arial", 14), bg="white").place(x=22, y=36)
-sex_combobox = ttk.Combobox(professors_page, font=("Arial", 14), state="readonly")
-sex_combobox['values'] = ("Male", "Female")
-sex_combobox.place(x=163, y=34, width=231, height=36)
-prof_print_btn=tk.Button(professors_page,text="Print",font=("Arial", 12 ), bg="#D9D9D9",fg="black",bd=0)
-prof_print_btn.place(x=437, y=36, width=148, height=27)
+tk.Label(professors_page, text="Import Prof Liste", font=("Arial", 14), bg="white").place(x=28, y=30)
+prof_imp_btn=tk.Button(professors_page,text="Import",font=("Arial", 12 ), bg="#D9D9D9",fg="black",bd=0)
+prof_imp_btn.place(x=190, y=30, width=148, height=27)
 
-tk.Label(professors_page, text="All Prof list", font=("Arial", 14), bg="white").place(x=22, y=110)
-all_print_btn=tk.Button(professors_page,text="Print",font=("Arial", 12 ), bg="#D9D9D9",fg="black",bd=0)
-all_print_btn.place(x=163, y=110, width=148, height=27)
+tk.Label(professors_page, text="OR", font=("Arial", 14,"bold"), bg="white").place(x=352, y=30)
 
+delete_btn=tk.Button(professors_page,text="Delete",font=("Arial", 12 ), bg="#D10801",fg="white",bd=0)
+delete_btn.place(x=465, y=305, width=148, height=27)
 
-delete_pr_btn=tk.Button(professors_page,text="Delete",font=("Arial", 12 ), bg="#D10801",fg="white",bd=0)
-delete_pr_btn.place(x=460, y=300, width=148, height=27)
+send_emails=tk.Button(professors_page,text="Send Emails",font=("Arial", 12 ), bg="#00B400",fg="white",bd=0)
+send_emails.place(x=630, y=305, width=148, height=27)
+
 
 def add_prof_window():
     add_prof_window = tk.Toplevel(window)
@@ -326,55 +324,41 @@ def add_prof_window():
     done_button.place(x=634, y=299, width=148, height=27)
 
 # زر فتح نافذة إضافة الأستاذ
-add_pr_btn = tk.Button(professors_page, text="Add Prof", font=("Arial", 12), bg="#00B400", fg="white", bd=0, command=add_prof_window)
-add_pr_btn.place(x=630, y=300, width=148, height=27)
+add_pr_btn = tk.Button(professors_page, text="Add Prof", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0, command=add_prof_window)
+add_pr_btn.place(x=406, y=30, width=148, height=27)
+
+columns_prof = ("name", "Email","Password")
+table_prof = ttk.Treeview(professors_page, columns=columns_prof, show="headings", height=8)
+
+
+table_prof.place(x=25, y=68, width=753, height=228)
 #profs page /////////////////////////////////////////////////////////////////////////////////////
 
 #attendee page /////////////////////////////////////////////////////////////////////////////////////
 
-tk.Label(attendee_page, text="Export List", font=("Arial", 12, "bold"), bg="white").place(x=32, y=44)
+tk.Label(attendee_page, text="Export attendee List", font=("Arial", 12, "bold"), bg="white").place(x=24, y=37)
 # قائمة "Salle"
 tk.Label(attendee_page, text="Salle", font=("Arial", 12), bg="white").place(x=32, y=88)
 salle_combobox = ttk.Combobox(attendee_page, state="readonly")
-salle_combobox.place(x=139, y=80, width=175, height=36)
+salle_combobox.place(x=88, y=80, width=175, height=36)
 
-# قائمة "Language"
-tk.Label(attendee_page, text="language", font=("Arial", 12), bg="white").place(x=32, y=145)
-language_combobox = ttk.Combobox(attendee_page, state="readonly")
-language_combobox.place(x=139, y=136, width=174, height=36)
-
-# زر "QR list"
-qr_list_btn = tk.Button(attendee_page, text="QR list", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
-qr_list_btn.place(x=630, y=250, width=148, height=36)
 
 # زر "Print"
 print_btn = tk.Button(attendee_page, text="Print", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
-print_btn.place(x=630, y=290, width=148, height=36)
+print_btn.place(x=294, y=84, width=148, height=27)
+
+# زر "QR list"
+code_bar_btn = tk.Button(attendee_page, text="Code Bar", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
+code_bar_btn.place(x=452, y=84, width=148, height=27)
+
+separator = tk.Frame(attendee_page, bg="#D9D9D9", height=2, width=360)  # خط فاصل بلون رمادي
+separator.place(x=216, y=160)  # تحديد الموقع تحت زر Import مباشرة
+
+tk.Label(attendee_page, text="Import absences List", font=("Arial", 14), bg="white").place(x=24, y=209)
+import_btn = tk.Button(attendee_page, text="Import", font=("Arial", 12), bg="#D9D9D9",bd=0)
+import_btn.place(x=294, y=209, width=162, height=26)
 
 #attendee page /////////////////////////////////////////////////////////////////////////////////////
-
-#absence page /////////////////////////////////////////////////////////////////////////////////////
-tk.Label(absences_page, text="Import List", font=("Arial", 12, "bold"), bg="white").place(x=32, y=32)
-abs_print_btn=tk.Button(absences_page,text="Print",font=("Arial", 12 ), bg="#D9D9D9",fg="black",bd=0)
-abs_print_btn.place(x=166, y=33, width=148, height=27)
-
-separator = tk.Frame(absences_page, bg="#D9D9D9", height=2, width=360)  # خط فاصل بلون رمادي
-separator.place(x=216, y=96)  # تحديد الموقع تحت زر Import مباشرة
-
-tk.Label(absences_page, text="Export List", font=("Arial", 12, "bold"), bg="white").place(x=32, y=100)
-# قائمة "Salle"
-tk.Label(absences_page, text="Salle", font=("Arial", 12), bg="white").place(x=32, y=157)
-salle_combobox = ttk.Combobox(absences_page, state="readonly")
-salle_combobox.place(x=139, y=149, width=175, height=36)
-
-# قائمة "Language"
-tk.Label(absences_page, text="language", font=("Arial", 12), bg="white").place(x=32, y=214)
-language_combobox = ttk.Combobox(absences_page, state="readonly")
-language_combobox.place(x=139, y=207, width=174, height=36)
-
-abs_print_btn2=tk.Button(absences_page,text="Print",font=("Arial", 14 ), bg="#D9D9D9",fg="black",bd=0)
-abs_print_btn2.place(x=630, y=300, width=148, height=27)
-# absence page/////////////////////////////////////////////////////////////////////////////////////
 
 #result page /////////////////////////////////////////////////////////////////////////////////////
 tk.Label(results_page, text="Salle", font=("Arial", 12), bg="white").place(x=32, y=59)
@@ -400,7 +384,6 @@ rs_done_btn.place(x=630, y=300, width=148, height=27)
 pages["Option"] = option_page
 pages["Students list"] = students_page
 pages["Professors list"] = professors_page
-pages["Absences list"] = absences_page
 pages["Attendee list"] = attendee_page
 pages["Results"] = results_page
 
