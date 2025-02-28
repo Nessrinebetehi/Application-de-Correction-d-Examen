@@ -1,8 +1,9 @@
+# login.py
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
-from db_connection import connect_to_database
-import subprocess  
+import subprocess
+from db_connector import get_db_connection
 
 # إنشاء النافذة
 window = tk.Tk()
@@ -22,7 +23,6 @@ window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
 # تحميل الصور
 bg_img = Image.open(r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen\background.png")
-
 photo = ImageTk.PhotoImage(bg_img)
 label1 = tk.Label(window, image=photo)
 label1.place(x=-5, y=0)  
@@ -36,11 +36,11 @@ label2.place(x=319, y=12)
 Login = tk.Label(window, text="Profil Login", font=("Arial", 20, "bold"), bg="#FBFBFB", fg="#333333")
 Login.place(x=470, y=103)
 
-username = tk.Label(window, text="Username", font=("Arial", 12, "bold"), bg="#FBFBFB", fg="#555555")
-username.place(x=435, y=180)
+email = tk.Label(window, text="Email", font=("Arial", 12, "bold"), bg="#FBFBFB", fg="#555555")
+email.place(x=435, y=180)
 
-username_entry = tk.Entry(window, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-username_entry.place(x=435, y=208, width=242, height=36)
+email_entry = tk.Entry(window, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
+email_entry.place(x=435, y=208, width=242, height=36)
 
 password = tk.Label(window, text="Password", font=("Arial", 12, "bold"), bg="#FBFBFB", fg="#555555")
 password.place(x=435, y=274)  
@@ -50,43 +50,49 @@ password_entry.place(x=435, y=302, width=242, height=36)
 
 # دالة تسجيل الدخول
 def on_login():
-    username = username_entry.get().strip()
+    email = email_entry.get().strip()
     password = password_entry.get().strip()
 
-    if not username or not password:
-        messagebox.showerror("Error", "Please enter both username and password.")
+    if not email or not password:
+        messagebox.showerror("Error", "Please enter both email and password.")
         return
 
     try:
-        db = connect_to_database()
-        if not db:
-            messagebox.showerror("Database Error", "Failed to connect to the database.")
+        conn = get_db_connection()
+        if conn is None:
+            messagebox.showerror("Error", "Failed to connect to the database.")
             return
+        
+        cursor = conn.cursor()
 
-        cursor = db.cursor()
+        # البحث في جدول responsables
+        query = "SELECT 'responsable' FROM responsables WHERE email = %s AND password = %s"
+        cursor.execute(query, (email, password))
+        result = cursor.fetchone()
 
-        # البحث في جدول المسؤولين
-        cursor.execute("SELECT * FROM responsables WHERE username = %s AND password = %s", (username, password))
-        responsable = cursor.fetchone()
+        # البحث في جدول professors إذا لم يتم العثور على النتيجة في responsables
+        if not result:
+            query = "SELECT 'professor' FROM professors WHERE email = %s AND password = %s"
+            cursor.execute(query, (email, password))
+            result = cursor.fetchone()
 
-        # البحث في جدول الأساتذة
-        cursor.execute("SELECT * FROM professors WHERE username = %s AND password = %s", (username, password))
-        professor = cursor.fetchone()
+        conn.close()
 
-        cursor.close()
-        db.close()
-
-        if responsable:
+        if result:
+            role = result[0]
             window.destroy()
-            subprocess.run(["python", "background.png"], check=True)
-        elif professor:
-            window.destroy()
-            subprocess.run(["python", "Logo.png"], check=True)
+            if role == "responsable":
+                subprocess.run(["python", "admin.py"], check=True)
+            elif role == "professor":
+                subprocess.run(["python", "professor.py"], check=True)
+            else:
+                messagebox.showerror("Error", "Unauthorized access.")
         else:
-            messagebox.showerror("Error", "Invalid username or password.")
+            messagebox.showerror("Error", "Invalid email or password.")
 
     except Exception as err:
-        messagebox.showerror("Error", f"An error occurred: {err}")
+        messagebox.showerror("Error", f"Database Query Error: {err}")
+
 # زر تسجيل الدخول
 login_button = tk.Button(
     window, 
