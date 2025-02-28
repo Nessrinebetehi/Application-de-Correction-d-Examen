@@ -4,9 +4,11 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 from tkinter import messagebox
-import socket
-import threading  # لتعدد المهام في الخادم
+from db_connector import op_save_data,insert_exam,get_exams,delete_exam
+from db_connector import add_salle,get_all_salles,delete_salle,generate_code_salle
+from db_connector import get_db_connection
 import mysql.connector
+
 
 # Create the main window
 window = tk.Tk()
@@ -110,55 +112,85 @@ def add_exams_window():
     coeff_entry = tk.Entry(add_exam_window, width=5)
     coeff_entry.place(x=455, y=39, width=78, height=27)
 
-    columns = ("Module", "Coefficient")
+    columns = ("ID", "Module", "Coefficient")
     table = ttk.Treeview(add_exam_window, columns=columns, show="headings", height=8)
 
+    table.heading("ID", text="ID")
     table.heading("Module", text="Module")
     table.heading("Coefficient", text="Coefficient")
 
+    table.column("ID", width=50, anchor="center")
     table.column("Module", width=300, anchor="center")
     table.column("Coefficient", width=100, anchor="center")
 
     table.place(x=14, y=92, width=705, height=160)
 
+    def load_exams():
+        """تحميل الامتحانات من قاعدة البيانات وعرضها في الجدول"""
+        for row in table.get_children():
+            table.delete(row)
+
+        exams = get_exams()
+        for exam in exams:
+            table.insert("", "end", values=exam)
+
     def add_item():
+        """إضافة امتحان جديد إلى قاعدة البيانات وعرضه في الجدول"""
         if len(table.get_children()) < num_exams:
             module = module_entry.get().strip()
             coeff = coeff_entry.get().strip()
 
-            if module and coeff.isdigit():
-                table.insert("", "end", values=(module, coeff))
-                module_entry.delete(0, tk.END)
-                coeff_entry.delete(0, tk.END)
+            if module and coeff.replace('.', '', 1).isdigit():
+                candidat_id = 1  # يجب تعيين هذا الرقم بناءً على البيانات الفعلية
+
+                result = insert_exam(candidat_id, module, float(coeff))
+
+                if result is True:
+                    load_exams()  # تحديث الجدول بعد الإدخال
+                    module_entry.delete(0, tk.END)
+                    coeff_entry.delete(0, tk.END)
+                    messagebox.showinfo("Success", "Exam added successfully!")
+                else:
+                    messagebox.showerror("Database Error", f"Error: {result}")
             else:
                 messagebox.showerror("Error", "Please enter a valid Module and Coefficient!")
         else:
             messagebox.showwarning("Warning", f"You can only add {num_exams} exams!")
 
     def delete_item():
+        """حذف الامتحان المحدد من قاعدة البيانات"""
         selected_item = table.selection()
         if selected_item:
             for item in selected_item:
-                table.delete(item)
+                exam_id = table.item(item)["values"][0]  # جلب ID الامتحان
+                result = delete_exam(exam_id)
+
+                if result is True:
+                    table.delete(item)
+                    messagebox.showinfo("Success", "Exam deleted successfully!")
+                else:
+                    messagebox.showerror("Database Error", f"Error: {result}")
         else:
-            messagebox.showwarning("Warning", "Please select an item to delete.")
+            messagebox.showwarning("Warning", "Please select an exam to delete.")
 
     add_button = tk.Button(add_exam_window, text="Add", bg="#00B400", fg="white", command=add_item, width=8, bd=0)
     add_button.place(x=590, y=39, width=91, height=27)
 
     delete_button = tk.Button(add_exam_window, text="Delete", bg="#D10801", fg="white", command=delete_item, width=10, bd=0)
     delete_button.place(x=411, y=280, width=147, height=27)
-    
 
     done_button = tk.Button(add_exam_window, text="Done", bg="#00B400", fg="white", command=add_exam_window.destroy, width=10, bd=0)
     done_button.place(x=570, y=280, width=147, height=27)
+
+    load_exams()  # تحميل الامتحانات عند فتح النافذة
+
 
 tk.Label(option_page, text="Add exams", font=("Arial", 14), bg="white").place(x=24, y=227)
 add_exams_btn = tk.Button(option_page, text="Add", font=("Arial", 16), bg="#5D8BCD", fg="white", bd=0, command=add_exams_window)
 add_exams_btn.place(x=190, y=230, width=148, height=27)
 
 def add_salles_window():
-    add_salle_window = tk.Toplevel(window)
+    add_salle_window = tk.Toplevel()
     add_salle_window.title("Add Salles")
     add_salle_window.geometry("730x320")
     add_salle_window.configure(bg="white")
@@ -173,33 +205,59 @@ def add_salles_window():
     capacity_entry = tk.Entry(add_salle_window, width=5)
     capacity_entry.place(x=455, y=39, width=78, height=27)
 
-    columns = ("Salle name", "Capacity")
+    columns = ("Code Salle", "Salle name", "Capacity")
     table = ttk.Treeview(add_salle_window, columns=columns, show="headings", height=8)
 
+    table.heading("Code Salle", text="Code Salle")
     table.heading("Salle name", text="Salle name")
     table.heading("Capacity", text="Capacity")
 
+    table.column("Code Salle", width=150, anchor="center")
     table.column("Salle name", width=300, anchor="center")
     table.column("Capacity", width=100, anchor="center")
 
     table.place(x=14, y=92, width=705, height=160)
 
+    def load_salles():
+        """تحميل القاعات من قاعدة البيانات وعرضها في الجدول"""
+        for row in table.get_children():
+            table.delete(row)
+
+        salles = get_all_salles()  # جلب جميع القاعات من قاعدة البيانات
+        for salle in salles:
+            table.insert("", "end", values=salle)
+
     def add_item():
+        """إضافة قاعة جديدة وحفظها في قاعدة البيانات"""
         salle = salle_entry.get().strip()
         capacity = capacity_entry.get().strip()
 
         if salle and capacity.isdigit():
-            table.insert("", "end", values=(salle, capacity))
-            salle_entry.delete(0, tk.END)
-            capacity_entry.delete(0, tk.END)
+            try:
+                code_salle = add_salle(salle, int(capacity))  # استدعاء الدالة من database.py
+                table.insert("", "end", values=(code_salle, salle, capacity))
+
+                salle_entry.delete(0, tk.END)
+                capacity_entry.delete(0, tk.END)
+
+                messagebox.showinfo("Success", "Salle added successfully!")
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Error: {e}")
+
         else:
             messagebox.showerror("Error", "Please enter a valid Salle name and Capacity!")
 
     def delete_item():
+        """حذف القاعة من الجدول ومن قاعدة البيانات"""
         selected_item = table.selection()
         if selected_item:
             for item in selected_item:
+                code_salle = table.item(item)["values"][0]  # جلب `code_salle`
+                delete_salle(code_salle)  # استدعاء دالة الحذف
+
                 table.delete(item)
+                messagebox.showinfo("Success", "Salle deleted successfully!")
+
         else:
             messagebox.showwarning("Warning", "Please select an item to delete.")
 
@@ -212,11 +270,31 @@ def add_salles_window():
     done_button = tk.Button(add_salle_window, text="Done", bg="#00B400", fg="white", command=add_salle_window.destroy, width=10, bd=0)
     done_button.place(x=570, y=280, width=147, height=27)
 
+    load_salles()  # تحميل القاعات عند فتح النافذة
+
 tk.Label(option_page, text="Add salles", font=("Arial", 14), bg="white").place(x=24, y=275)
 add_salles_btn = tk.Button(option_page, text="Add", font=("Arial", 16), bg="#5D8BCD", fg="white", bd=0, command=add_salles_window)
 add_salles_btn.place(x=190, y=275, width=148, height=27)
 
-op_done_btn = tk.Button(option_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0)
+def on_save():
+    institute_name = institute_entry.get()
+    exam_option = option_entry.get()
+    name_post = name_post_entry.get()
+    nbr_exams = nbr_exams_combobox.get()
+
+    result = op_save_data(institute_name, exam_option, name_post, nbr_exams)
+
+    if "✅" in result:
+        messagebox.showinfo("نجاح", result)
+        institute_entry.delete(0, tk.END)
+        option_entry.delete(0, tk.END)
+        name_post_entry.delete(0, tk.END)
+        nbr_exams_combobox.current(0)
+    else:
+        messagebox.showerror("خطأ", result)
+
+# زر الإضافة
+op_done_btn = tk.Button(option_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=on_save)
 op_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 
 # Option page /////////////////////////////////////////////////////////////////////////////////////
@@ -230,8 +308,8 @@ separator = ttk.Separator(students_page, orient="horizontal")
 separator.place(x=270, y=66, width=300, height=2)
 
 tk.Label(students_page, text="Option", font=("Arial", 14), bg="white").place(x=22, y=82)
-option_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-option_entry.place(x=163, y=80, width=237, height=36)
+st_option_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
+st_option_entry.place(x=163, y=80, width=237, height=36)
 
 tk.Label(students_page, text="Name", font=("Arial", 14), bg="white").place(x=22, y=127)
 name_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
