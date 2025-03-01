@@ -7,6 +7,17 @@ from tkinter import messagebox
 import socket
 import threading  # لتعدد المهام في الخادم
 import mysql.connector
+import smtplib
+import ssl
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from tkinter import filedialog, messagebox, ttk
+import pandas as pd
+import secrets
+import string
+import os
+import sqlite3
+from cryptography.fernet import Fernet
 
 # Create the main window
 window = tk.Tk()
@@ -261,74 +272,289 @@ st_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 # Students page /////////////////////////////////////////////////////////////////////////////////////
 
 # Professors page /////////////////////////////////////////////////////////////////////////////////////
-tk.Label(professors_page, text="Import Prof List", font=("Arial", 14), bg="white").place(x=28, y=15)
-prof_imp_btn = tk.Button(professors_page, text="Import", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
-prof_imp_btn.place(x=190, y=15, width=148, height=27)
+# 📧 Configuration Gmail
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+EMAIL_SENDER = "batehibellkirnesrin@gmail.com"  # Remplace par ton adresse Gmail
+EMAIL_PASSWORD = "adfu hhbs tcim axfy"  # Remplace par ton mot de passe d'application
 
-tk.Label(professors_page, text="OR", font=("Arial", 14, "bold"), bg="white").place(x=355, y=15)
+# 📌 Initialisation de la base de données
+DB_FILE = "professeurs.db"
+CLE_FICHIER = "key.key"
+fichier_importe = None  # Variable pour stocker le fichier Excel
 
-delete_btn = tk.Button(professors_page, text="Delete", font=("Arial", 12), bg="#D10801", fg="white", bd=0)
-delete_btn.place(relx=0.7, y=305, width=148, height=27, anchor="e")
+# 🔐 Générer et charger la clé de chiffrement
+def generer_cle():
+    if not os.path.exists(CLE_FICHIER):
+        cle = Fernet.generate_key()
+        with open(CLE_FICHIER, "wb") as fichier_cle:
+            fichier_cle.write(cle)
 
-send_emails = tk.Button(professors_page, text="Send Emails", font=("Arial", 12), bg="#00B400", fg="white", bd=0)
-send_emails.place(relx=0.9, y=305, width=148, height=27, anchor="e")
+def charger_cle():
+    with open(CLE_FICHIER, "rb") as fichier_cle:
+        return fichier_cle.read()
 
-def add_prof_window():
-    add_prof_window = tk.Toplevel()
-    add_prof_window.title("Add Professors")
-    add_prof_window.geometry("800x340")
-    add_prof_window.configure(bg="white")
-    add_prof_window.resizable(False, False)
+generer_cle()
+fernet = Fernet(charger_cle())
 
-    # Labels
-    tk.Label(add_prof_window, text="Name", bg="white", font=("Arial", 12)).place(x=50, y=45)
-    tk.Label(add_prof_window, text="Email", bg="white", font=("Arial", 12)).place(x=428, y=45)
-    tk.Label(add_prof_window, text="Surname", bg="white", font=("Arial", 12)).place(x=50, y=120)
-    tk.Label(add_prof_window, text="Module", bg="white", font=("Arial", 12)).place(x=428, y=120)
+# 📌 Connexion à SQLite
+conn = sqlite3.connect(DB_FILE)
+cursor = conn.cursor()
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS professeurs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom TEXT,
+    prenom TEXT,
+    email TEXT,
+    mot_de_passe TEXT
+)
+""")
+conn.commit()
 
-    # Entry Fields
-    name_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
-    name_entry.place(x=135, y=36, width=235, height=36)
+# 🔑 Générer un mot de passe sécurisé
+def generer_mot_de_passe():
+    caracteres = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(caracteres) for _ in range(8))
 
-    email_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
-    email_entry.place(x=520, y=36, width=235, height=36)
+# 🔒 Chiffrer et déchiffrer les mots de passe
+def chiffrer_mot_de_passe(mot_de_passe):
+    return fernet.encrypt(mot_de_passe.encode()).decode()
 
-    surname_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
-    surname_entry.place(x=135, y=111, width=235, height=36)
+def dechiffrer_mot_de_passe(mot_de_passe_chiffre):
+    return fernet.decrypt(mot_de_passe_chiffre.encode()).decode()
 
-    module_combobox = ttk.Combobox(add_prof_window, font=("Arial", 12), state="readonly")
-    module_combobox['values'] = ("Mathematics", "Physics", "Computer Science", "Biology")
-    module_combobox.place(x=520, y=111, width=235, height=36)
+# 📩 Fonction d'envoi d'email
+def envoyer_email(destinataire, nom, prenom, mot_de_passe):
+    try:
+        sujet = "Votre mot de passe pour la plateforme"
+        message = f"""
+        Bonjour {prenom} {nom},
 
-    # Button Functions
-    def cancel():
-        add_prof_window.destroy()
+        Voici vos informations de connexion :
+        Email : {destinataire}
+        Mot de passe : {mot_de_passe}
 
-    def done():
-        name = name_entry.get().strip()
-        surname = surname_entry.get().strip()
-        email = email_entry.get().strip()
-        module = module_combobox.get().strip()
+        Merci de garder ces informations en sécurité.
 
-        if name and surname and email and module:
-            messagebox.showinfo("Success", "Professor added successfully!")
-            add_prof_window.destroy()
+        Cordialement,
+        L'administration.
+        """
+
+        msg = MIMEMultipart()
+        msg["From"] = EMAIL_SENDER
+        msg["To"] = destinataire
+        msg["Subject"] = sujet
+        msg.attach(MIMEText(message, "plain"))
+
+        context = ssl.create_default_context()
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls(context=context)
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.sendmail(EMAIL_SENDER, destinataire, msg.as_string())
+        server.quit()
+
+        print(f"✅ Email envoyé à {destinataire}")
+    except Exception as e:
+        print(f"❌ Erreur lors de l'envoi à {destinataire} : {e}")
+
+
+# 📂 Importer un fichier Excel
+def importer_fichier():
+    global fichier_importe, df
+    fichier_importe = filedialog.askopenfilename(filetypes=[("Fichiers Excel", "*.xlsx;*.xls")])
+    if not fichier_importe:
+        return
+    try:
+        df = pd.read_excel(fichier_importe)
+        if 'Nom' in df.columns and 'Prenom' in df.columns and 'Email' in df.columns:
+            cursor.execute("DELETE FROM professeurs")
+            conn.commit()
+
+            for row in table.get_children():
+                table.delete(row)
+
+            messagebox.showinfo("Succès", "Fichier importé avec succès et ancienne liste supprimée.")
+            lbl_fichier.config(text=f"Fichier chargé : {os.path.basename(fichier_importe)}")
+            
+            # Activation des boutons après l'importation réussie
+            btn_generer.config(state=tk.NORMAL)
+            btn_envoyer.config(state=tk.NORMAL)
+            btn_exporter.config(state=tk.NORMAL)  # Activation du bouton Export
+            
         else:
-            messagebox.showerror("Error", "Please fill in all fields.")
+            messagebox.showerror("Erreur", "Le fichier doit contenir 'Nom', 'Prenom' et 'Email'.")
+    except Exception as e:
+        messagebox.showerror("Erreur", f"Impossible de lire le fichier : {e}")
 
-    # Buttons
-    cancel_button = tk.Button(add_prof_window, text="Cancel", bg="#D10801", fg="white", font=("Arial", 12), bd=0, command=cancel)
-    cancel_button.place(x=472, y=299, width=148, height=27)
+# 🔑 Générer et stocker les mots de passe
+def generer_mots_de_passe():
+    global df
+    if df is not None:
+        for _, row in df.iterrows():
+            mot_de_passe = generer_mot_de_passe()
+            mot_de_passe_chiffre = chiffrer_mot_de_passe(mot_de_passe)
 
-    done_button = tk.Button(add_prof_window, text="Done", bg="#00B400", fg="white", font=("Arial", 12), bd=0, command=done)
-    done_button.place(x=634, y=299, width=148, height=27)
-    
-add_pr_btn = tk.Button(professors_page, text="Add Prof", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0, command=add_prof_window)
-add_pr_btn.place(x=406, y=15, width=148, height=27)
+            cursor.execute("INSERT INTO professeurs (nom, prenom, email, mot_de_passe) VALUES (?, ?, ?, ?)",
+                           (row['Nom'], row['Prenom'], row['Email'], mot_de_passe_chiffre))
+        conn.commit()
 
-columns_prof = ("name", "Email", "Password")
-table_prof = ttk.Treeview(professors_page, columns=columns_prof, show="headings", height=8)
-table_prof.place(x=25, y=55, relwidth=0.95, height=228)  # Using relwidth for responsiveness
+        messagebox.showinfo("Succès", "Mots de passe générés et enregistrés.")
+        afficher_donnees()
+
+# 📩 Envoyer les emails à tous les professeurs
+def envoyer_tous_emails():
+    cursor.execute("SELECT nom, prenom, email, mot_de_passe FROM professeurs")
+    professeurs = cursor.fetchall()
+
+    if not professeurs:
+        messagebox.showerror("Erreur", "Aucun professeur enregistré dans la base de données.")
+        return
+
+    for nom, prenom, email, mot_de_passe_chiffre in professeurs:
+        mot_de_passe_dechiffre = dechiffrer_mot_de_passe(mot_de_passe_chiffre)
+        envoyer_email(email, nom, prenom, mot_de_passe_dechiffre)
+
+    messagebox.showinfo("Succès", "Emails envoyés à tous les professeurs.")
+
+# 📊 Afficher les données
+def afficher_donnees():
+    for row in table.get_children():
+        table.delete(row)
+
+    cursor.execute("SELECT id, nom, prenom, email, mot_de_passe FROM professeurs")
+    for row in cursor.fetchall():
+        id_prof, nom, prenom, email, mot_de_passe_chiffre = row
+        mot_de_passe_dechiffre = dechiffrer_mot_de_passe(mot_de_passe_chiffre)
+        table.insert("", "end", values=(id_prof, nom, prenom, email, mot_de_passe_dechiffre))
+
+# 📌 Fonction pour vider le tableau
+def vider_tableau():
+    confirmation = messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer toutes les données ?")
+    if confirmation:
+        cursor.execute("DELETE FROM professeurs")
+        conn.commit()
+
+        for row in table.get_children():
+            table.delete(row)
+
+        messagebox.showinfo("Succès", "Toutes les données ont été supprimées.")
+        # 📂 Exporter vers le fichier Excel importé
+def exporter_fichier():
+    global fichier_importe, df
+    if fichier_importe and df is not None:
+        try:
+            # Récupérer les mots de passe depuis la base de données
+            cursor.execute("SELECT nom, prenom, email, mot_de_passe FROM professeurs")
+            professeurs = cursor.fetchall()
+            
+            # Vérifier si la colonne "Mot de passe" existe déjà
+            if "Mot de passe" not in df.columns:
+                df["Mot de passe"] = ""
+
+            # Mettre à jour les mots de passe dans le DataFrame
+            for i, (_, _, email, mot_de_passe_chiffre) in enumerate(professeurs):
+                mot_de_passe_dechiffre = dechiffrer_mot_de_passe(mot_de_passe_chiffre)
+                df.at[i, "Mot de passe"] = mot_de_passe_dechiffre
+
+            # Sauvegarder dans le fichier Excel
+            df.to_excel(fichier_importe, index=False)
+            messagebox.showinfo("Succès", "Exportation réussie dans le même fichier Excel !")
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Impossible d'exporter : {e}")
+
+            # ➕ Ajouter un professeur manuellement
+
+def ajouter_professeur():
+    def sauvegarder_professeur():
+        nom = entry_nom.get().strip()
+        prenom = entry_prenom.get().strip()
+        email = entry_email.get().strip()
+        
+        if nom and prenom and email:
+            mot_de_passe = generer_mot_de_passe()
+            mot_de_passe_chiffre = chiffrer_mot_de_passe(mot_de_passe)
+            
+            cursor.execute("INSERT INTO professeurs (nom, prenom, email, mot_de_passe) VALUES (?, ?, ?, ?)",
+                           (nom, prenom, email, mot_de_passe_chiffre))
+            conn.commit()
+            afficher_donnees()
+            
+            messagebox.showinfo("Succès", f"Professeur {prenom} {nom} ajouté avec succès !")
+            fenetre_ajout.destroy()
+        else:
+            messagebox.showerror("Erreur", "Tous les champs sont obligatoires.")
+
+    # Création de la fenêtre d'ajout plus grande
+    fenetre_ajout = tk.Toplevel(professors_page)
+    fenetre_ajout.title("Ajouter un Professeur")
+    fenetre_ajout.geometry("600x400")
+    fenetre_ajout.resizable(False, False)
+
+    frame = tk.Frame(fenetre_ajout, padx=30, pady=30)
+    frame.pack(expand=True)
+
+    # Titre
+    tk.Label(frame, text="Ajouter un Nouveau Professeur", font=("Arial", 16, "bold"), fg="blue").grid(row=0, column=0, columnspan=2, pady=15)
+
+    # Champs de saisie avec labels bien alignés
+    tk.Label(frame, text="Nom :", font=("Arial", 14)).grid(row=1, column=0, sticky="w", pady=10)
+    entry_nom = tk.Entry(frame, font=("Arial", 14), width=40)
+    entry_nom.grid(row=1, column=1, pady=10)
+
+    tk.Label(frame, text="Prénom :", font=("Arial", 14)).grid(row=2, column=0, sticky="w", pady=10)
+    entry_prenom = tk.Entry(frame, font=("Arial", 14), width=40)
+    entry_prenom.grid(row=2, column=1, pady=10)
+
+    tk.Label(frame, text="Email :", font=("Arial", 14)).grid(row=3, column=0, sticky="w", pady=10)
+    entry_email = tk.Entry(frame, font=("Arial", 14), width=40)
+    entry_email.grid(row=3, column=1, pady=10)
+
+    # Boutons d'action bien positionnés
+    btn_sauvegarder = tk.Button(frame, text="Sauvegarder", font=("Arial", 14, "bold"), bg="green", fg="white", command=sauvegarder_professeur, width=button_width, height=button_height)
+    btn_sauvegarder.grid(row=4, column=0, columnspan=2, pady=20, ipadx=20, ipady=5)
+
+
+  # 🖥 Interface Tkinter
+
+
+espacement_x = 150  # Distance horizontale entre les boutons
+position_x = 10  
+button_width = 20  # Largeur des boutons (en nombre de caractères)
+button_height = 1
+
+btn_importer = tk.Button(professors_page, text="Importer un fichier Excel", command=importer_fichier, width=button_width, height=button_height , bg="#5D8BCD", fg="white")
+btn_importer.place(x=position_x, y=20)
+
+btn_generer = tk.Button(professors_page, text="Générer les mots de passe", command=generer_mots_de_passe, state=tk.DISABLED, width=button_width, height=button_height)
+btn_generer.place(x=position_x +1.01* espacement_x, y=20)
+
+btn_envoyer = tk.Button(professors_page, text="Envoyer les mots de passe par email", command=envoyer_tous_emails, state=tk.DISABLED, width=27, height=button_height)
+btn_envoyer.place(x=position_x + 2.035* espacement_x, y=20)
+
+btn_exporter = tk.Button(professors_page, text="Exporter vers Excel", command=exporter_fichier, state=tk.DISABLED, width=18, height=button_height)
+btn_exporter.place(x=position_x + 3.375* espacement_x, y=20)
+
+btn_ajouter = tk.Button(professors_page, text="Ajouter un professeur", command=ajouter_professeur, width=18, height=button_height, bg="#5D8BCD", fg="white")
+btn_ajouter.place(x=position_x + 4.3 * espacement_x, y=20)
+
+lbl_fichier = tk.Label(professors_page, text="Aucun fichier chargé", fg="blue", width=18, height=button_height)
+lbl_fichier.place(x=10, y=80)
+
+frame_table = tk.Frame(professors_page)
+frame_table.pack(pady=110)
+
+table = ttk.Treeview(frame_table, columns=("ID", "Nom", "Prenom", "Email", "Mot de passe"), show="headings")
+table.heading("ID", text="ID")
+table.heading("Nom", text="Nom")
+table.heading("Prenom", text="Prénom")
+table.heading("Email", text="Email")
+table.heading("Mot de passe", text="Mot de passe")
+table.pack()
+
+btn_vider = tk.Button(professors_page, text="Vider le tableau",font=("Arial", 10, "bold"), command=vider_tableau, fg="white", bg="red", width=18, height=button_height )
+btn_vider.pack(pady=10)
+btn_vider.place(x=327,y=300)
+
 # Professors page /////////////////////////////////////////////////////////////////////////////////////
 
 # Attendee page /////////////////////////////////////////////////////////////////////////////////////

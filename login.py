@@ -22,12 +22,12 @@ y_position = int((screen_height - window_height) / 2)
 window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
 # تحميل الصور
-bg_img = Image.open(r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen\background.png")
+bg_img = Image.open(r"background.png")
 photo = ImageTk.PhotoImage(bg_img)
 label1 = tk.Label(window, image=photo)
 label1.place(x=-5, y=0)  
 
-logo = Image.open(r"C:\Users\yoga\Desktop\PythonProject\Application-de-Correction-d-Examen/Logo.png")
+logo = Image.open(r"Logo.png")
 photo2 = ImageTk.PhotoImage(logo)
 label2 = tk.Label(window, image=photo2)
 label2.place(x=319, y=12)  
