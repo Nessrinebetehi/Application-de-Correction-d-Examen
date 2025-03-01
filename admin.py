@@ -18,6 +18,13 @@ import string
 import os
 import sqlite3
 from cryptography.fernet import Fernet
+import random
+import barcode
+from barcode.writer import ImageWriter
+from tkinter import filedialog, messagebox, Label, Tk, Entry, Frame
+import qrcode  # Bibliothèque pour générer des QR codes
+from pyzbar.pyzbar import decode
+from PIL import Image  # Bibliothèque pour ouvrir les images scannées
 
 # Create the main window
 window = tk.Tk()
@@ -47,7 +54,7 @@ menu_frame = tk.Frame(window, bg="#5A7EC7")
 menu_frame.pack(fill=tk.X, side=tk.TOP)
 
 # Define button names
-menu_buttons = ["Option", "Students list", "Professors list", "Attendee list", "Results"]
+menu_buttons = ["Option", "Students list","QR/Bar code", "Professors list", "Attendee list", "Results"]
 button_width = 15
 
 # Create a dictionary to store pages
@@ -83,6 +90,7 @@ students_page = tk.Frame(window, bg="white")
 professors_page = tk.Frame(window, bg="white")
 attendee_page = tk.Frame(window, bg="white")
 results_page = tk.Frame(window, bg="white")
+code_page=tk.Frame(window, bg="white")
 
 # Option page /////////////////////////////////////////////////////////////////////////////////////
 tk.Label(option_page, text="Institute", font=("Arial", 14), bg="white").place(x=24, y=15)
@@ -233,43 +241,346 @@ op_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 # Option page /////////////////////////////////////////////////////////////////////////////////////
 
 # Students page /////////////////////////////////////////////////////////////////////////////////////
-tk.Label(students_page, text="Students list", font=("Arial", 14), bg="white").place(x=22, y=27)
-st_import_btn = tk.Button(students_page, text="Import List", font=("Arial", 14), bg="#D9D9D9", fg="black", bd=0)
-st_import_btn.place(x=163, y=27, width=148, height=27)
 
-separator = ttk.Separator(students_page, orient="horizontal")
-separator.place(x=270, y=66, width=300, height=2)
+# Fonction pour générer un code aléatoire unique
+def generate_code(length=8):
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
-tk.Label(students_page, text="Option", font=("Arial", 14), bg="white").place(x=22, y=82)
-option_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-option_entry.place(x=163, y=80, width=237, height=36)
+# Fonction pour importer et anonymiser un fichier Excel
+def import_excel():
+    global df  # Pour qu'on puisse accéder à df dans d'autres fonctions
+    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
+    
+    if file_path:
+        df = pd.read_excel(file_path)
+        
+        # Vérifier si les colonnes nécessaires existent
+        required_columns = ['Nom', 'Prenom', 'Filière', 'CodeSalle', 'Date_N']
+        if all(col in df.columns for col in required_columns):
+            
+            # Création d'une copie pour l'administration
+            df_admin = df.copy()
 
-tk.Label(students_page, text="Name", font=("Arial", 14), bg="white").place(x=22, y=127)
-name_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-name_entry.place(x=163, y=125, width=237, height=36)
+            # Ajout d'une colonne avec des codes anonymes
+            df['Code Anonyme'] = [generate_code() for _ in range(len(df))]
+            
+            # Ajouter le code anonyme dans la copie pour l'administration
+            df_admin['Code Anonyme'] = df['Code Anonyme']
+            
+            # Création du fichier anonymisé (sans nom, prénom, date de naissance)
+            df_anonymized = df[['Code Anonyme', 'Filière', 'CodeSalle']]
+            
+            # Sauvegarder les fichiers
+            save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")], title="Save the file")
+            
+            if save_path:
+                with pd.ExcelWriter(save_path) as writer:
+                    df_anonymized.to_excel(writer, sheet_name="Anonymized", index=False)
+                    df_admin.to_excel(writer, sheet_name="Administration", index=False)
+                
+                messagebox.showinfo("Success", "Files saved successfully!")
+                display_data(df)
+        else:
+            messagebox.showerror("Error", "The file does not contain all the required columns!")
 
-tk.Label(students_page, text="Surname", font=("Arial", 14), bg="white").place(x=22, y=175)
-surname_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-surname_entry.place(x=163, y=173, width=237, height=36)
+# Fonction pour afficher les candidats avec leur code anonyme
+def display_data(df):
+    for i in tree.get_children():
+        tree.delete(i)
+    for _, row in df.iterrows():
+        tree.insert("", "end", values=(row['Nom'], row['Prenom'], row['Filière'], row['CodeSalle'], row['Date_N'], row['Code Anonyme']))
 
-tk.Label(students_page, text="Date of Birth", font=("Arial", 14), bg="white").place(x=22, y=225)
-dob_entry = DateEntry(students_page, font=("Arial", 14), bg="white", fg="black", 
-                      date_pattern="yyyy-mm-dd", width=18)
-dob_entry.place(x=163, y=220, width=237, height=36)
+# Fonction pour ajouter un candidat manuellement
+def add_candidate(entry_nom, entry_prenom, entry_filiere, entry_codesalle, entry_date_n):
+    nom = entry_nom.get()
+    prenom = entry_prenom.get()
+    filiere = entry_filiere.get()
+    codesalle = entry_codesalle.get()
+    date_n = entry_date_n.get()
+    
+    if not nom or not prenom or not filiere or not codesalle or not date_n:
+        messagebox.showwarning("Error", "Please fill in all the information.")
+        return
+    
+    # Génération d'un code anonyme pour ce candidat
+    code_anonyme = generate_code()
+    
+    # Ajouter ce candidat à la DataFrame
+    global df
+    new_row = pd.DataFrame([[nom, prenom, filiere, codesalle, date_n, code_anonyme]], columns=['Nom', 'Prenom', 'Filière', 'CodeSalle', 'Date_N', 'Code Anonyme'])
+    df = pd.concat([df, new_row], ignore_index=True)
+    
+    # Mise à jour de l'affichage dans le tableau
+    display_data(df)
+    
+    # Demander où sauvegarder le fichier Excel
+    save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")], title="Save the file")
+    
+    if save_path:
+        df_admin = df.copy()
+        df_anonymized = df[['Code Anonyme', 'Filière', 'CodeSalle']]
+        
+        with pd.ExcelWriter(save_path) as writer:
+            df_anonymized.to_excel(writer, sheet_name="Anonymized", index=False)
+            df_admin.to_excel(writer, sheet_name="Administration", index=False)
+        
+        messagebox.showinfo("Success", "Candidate added and file saved successfully!")
 
-tk.Label(students_page, text="Sex", font=("Arial", 14), bg="white").place(x=414, y=82)
-sex_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
-sex_combobox['values'] = ("Male", "Female")
-sex_combobox.place(x=480, y=80, width=175, height=36)
+# Fonction pour ouvrir la fenêtre d'ajout de candidat
+def open_add_candidate_window():
+    add_candidate_window = tk.Toplevel(students_page)
+    add_candidate_window.title("Add Candidate")
+    add_candidate_window.configure(bg="white")
+    add_candidate_window.geometry("750x450")
+    
+    
+    # Définir la taille minimale et maximale de la fenêtre d'ajout de candidat
+    add_candidate_window.minsize(750, 450)  # Taille minimale
+    add_candidate_window.maxsize(750, 450)  # Taille maximale
+    
+    # Création d'un cadre principal pour une organisation propre
+    frame_main = tk.Frame(add_candidate_window, padx=20, pady=20)
+    frame_main.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    # Titre de la fenêtre
+    tk.Label(frame_main, text="Add Candidate", font=("Arial", 18, "bold")).grid(row=0, column=0, columnspan=2, pady=20)
+    
+    # Création des champs de saisie
+    tk.Label(frame_main, text="Name:", font=("Arial", 12)).grid(row=1, column=0, sticky="w", pady=5)
+    entry_nom = tk.Entry(frame_main, font=("Arial", 12))
+    entry_nom.grid(row=1, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
 
-tk.Label(students_page, text="Salle", font=("Arial", 14), bg="white").place(x=414, y=127)
-salle_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
-salle_combobox['values'] = ("A", "B", "C", "D")
-salle_combobox.place(x=480, y=125, width=175, height=36)
+    tk.Label(frame_main, text="First Name:", font=("Arial", 12)).grid(row=2, column=0, sticky="w", pady=5)
+    entry_prenom = tk.Entry(frame_main, font=("Arial", 12))
+    entry_prenom.grid(row=2, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
 
-st_done_btn = tk.Button(students_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0)
-st_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
+    tk.Label(frame_main, text="Course:",font=("Arial", 12)).grid(row=3, column=0, sticky="w", pady=5)
+    entry_filiere = tk.Entry(frame_main, font=("Arial", 12))
+    entry_filiere.grid(row=3, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
+
+    tk.Label(frame_main, text="Room Code:",font=("Arial", 12)).grid(row=4, column=0, sticky="w", pady=5)
+    entry_codesalle = tk.Entry(frame_main, font=("Arial", 12))
+    entry_codesalle.grid(row=4, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
+
+    tk.Label(frame_main, text="Date of Birth:",font=("Arial", 12)).grid(row=5, column=0, sticky="w", pady=5)
+    entry_date_n = tk.Entry(frame_main, font=("Arial", 12))
+    entry_date_n.grid(row=5, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
+    
+    # Ajouter un bouton pour soumettre les informations
+    btn_add_candidate = tk.Button(frame_main, text="Add Candidate", font=("Arial", 12), command=lambda: add_candidate(entry_nom, entry_prenom, entry_filiere, entry_codesalle, entry_date_n), bg="#5D8BCD", fg="white")
+    btn_add_candidate.grid(row=6, column=0, columnspan=2, pady=20, padx=10, sticky="ew")
+    
+    # Bouton pour revenir à la fenêtre principale
+    btn_back = tk.Button(frame_main, text="Back", font=("Arial", 12), command=add_candidate_window.destroy, bg="black", fg="white")
+    btn_back.grid(row=7, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
+
+def export_excel():
+    global df, file_path
+    if df is not None and file_path:
+        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        messagebox.showinfo("Success", "Données mises à jour et sauvegardées dans le fichier d'origine!")
+    else:
+        messagebox.showwarning("Warning", "Aucun fichier importé!")
+
+# Cadre pour les boutons
+frame_buttons = tk.Frame(students_page)
+frame_buttons.configure(bg="white")
+frame_buttons.pack(pady=10)
+
+btn_import = tk.Button(frame_buttons, text="Import Excel File",font=("Arial", 11), command=import_excel, width=20, bg="#5D8BCD", fg="white")
+btn_import.grid(row=0, column=0, padx=10, pady=10)
+
+btn_export = tk.Button(frame_buttons, text="Export Data",font=("Arial", 11),command=export_excel, width=20, bg="#5D8BCD", fg="white")
+btn_export.grid(row=0, column=1, padx=10, pady=10)
+
+btn_add_candidate_window = tk.Button(frame_buttons, text="Add Candidate Manually",font=("Arial", 11), command=open_add_candidate_window, width=20,bg="#00B400", fg="white")
+btn_add_candidate_window.grid(row=0, column=2, padx=10, pady=10)
+
+
+# Label de statut
+lbl_status = tk.Label(students_page, text="Select a file to anonymize", fg="red")  # Changer la couleur du texte ici
+lbl_status.pack()
+
+# Tableau pour afficher les candidats avec leurs codes anonymes
+columns = ("Name", "First Name", "Course", "Room Code", "Date of Birth", "Anonymous Code")
+tree = ttk.Treeview(students_page, columns=columns, show="headings")
+for col in columns:
+    tree.heading(col, text=col)
+    tree.column(col, width=100)
+tree.pack(expand=True, fill="both", padx=10, pady=10)
+
+
 # Students page /////////////////////////////////////////////////////////////////////////////////////
+# code page ////////////////////////////////////////////////////////////////////////////////////////
+
+# Variable globale pour stocker le fichier Excel
+df = None
+
+# Fonction pour importer le fichier Excel
+def import_excel():
+    global df
+    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
+    if not file_path:
+        return
+    try:
+        df = pd.read_excel(file_path)
+        required_columns = ['Nom', 'Prenom', 'Filière', 'CodeSalle', 'Date_N', 'Code Anonyme']
+        if not all(col in df.columns for col in required_columns):
+            messagebox.showerror("Error", "The Excel file does not contain all required columns.")
+            df = None
+            return
+        messagebox.showinfo("Success", "Excel file successfully imported")
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred while importing the file: {e}")
+        df = None
+
+# Fonction pour générer les codes-barres et sauvegarder dans un fichier Excel
+def save_barcodes_to_excel():
+    global df
+    if df is None:
+        messagebox.showerror("Error", "Please import an Excel file first.")
+        return
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    output_dir = os.path.join(desktop_path, "code_bars")
+    os.makedirs(output_dir, exist_ok=True)
+    barcode_data = []
+    for index, row in df.iterrows():
+        code_anonyme = str(row['Code Anonyme'])
+        code = barcode.get_barcode_class('code128')(code_anonyme, writer=ImageWriter())
+        barcode_filename = os.path.join(output_dir, f"barcode_{code_anonyme}.png")
+        code.save(barcode_filename)
+        barcode_data.append({
+            "Nom": row['Nom'], "Prenom": row['Prenom'], "Filière": row['Filière'],
+            "CodeSalle": row['CodeSalle'], "Date_N": row['Date_N'], "Code Anonyme": code_anonyme,
+            "Nom du fichier de code-barres": barcode_filename
+        })
+    barcode_df = pd.DataFrame(barcode_data)
+    barcode_df.to_excel(os.path.join(desktop_path, "code_bars.xlsx"), index=False)
+    messagebox.showinfo("Success", "Barcodes have been generated and saved on your desktop.")
+
+# Fonction pour générer des QR Codes et les sauvegarder
+# Fonction pour générer des QR Codes et les sauvegarder dans un fichier Excel
+def generate_qr_codes():
+    global df
+    if df is None:
+        messagebox.showerror("Error", "Please import an Excel file first.")
+        return
+    
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
+    qr_dir = os.path.join(desktop_path, "code_qr")
+    os.makedirs(qr_dir, exist_ok=True)
+    
+    qr_data = []  # Liste pour stocker les informations des QR codes
+    
+    for index, row in df.iterrows():
+        code_anonyme = str(row['Code Anonyme'])
+        
+        # Génération du QR code
+        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
+        qr.add_data(code_anonyme)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill='black', back_color='white')
+        
+        # Sauvegarde de l'image du QR code
+        qr_filename = os.path.join(qr_dir, f"qr_code_{code_anonyme}.png")
+        qr_img.save(qr_filename)
+        
+        # Ajouter les informations à la liste
+        qr_data.append({
+            "Nom": row['Nom'], "Prenom": row['Prenom'], "Filière": row['Filière'],
+            "CodeSalle": row['CodeSalle'], "Date_N": row['Date_N'], "Code Anonyme": code_anonyme,
+            "Nom du fichier QR Code": qr_filename
+        })
+    
+    # Sauvegarde des informations dans un fichier Excel
+    qr_df = pd.DataFrame(qr_data)
+    qr_df.to_excel(os.path.join(desktop_path, "code_qr.xlsx"), index=False)
+    
+    messagebox.showinfo("Success", "QR codes have been generated and saved on your desktop.")
+
+# Fonction pour scanner un code-barres ou un QR code et afficher les informations
+# Fonction pour scanner un code-barres ou un QR code et afficher les informations
+def scan_code():
+    # Ouvre une fenêtre pour sélectionner une image à scanner
+    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")])
+    if not file_path:
+        return
+    
+    try:
+        # Ouvre l'image avec PIL
+        img = Image.open(file_path)
+        decoded_objects = decode(img)  # Décode le code-barres ou QR code dans l'image
+        if not decoded_objects:
+            messagebox.showerror("Error", "No barcode or QR code detected.")
+            return
+        
+        # Afficher les informations du code scanné
+        for obj in decoded_objects:
+            data = obj.data.decode('utf-8')  # Convertir les données en texte (Code Anonyme)
+            
+            # Rechercher les informations de l'étudiant dans le fichier Excel
+            if df is not None:
+                student_info = df[df['Code Anonyme'] == data]  # Trouver la ligne correspondant au Code Anonyme
+                if not student_info.empty:
+                    student_details = student_info.iloc[0]  # Prendre la première ligne trouvée
+                    student_info_text = (
+                        f"Nom: {student_details['Nom']}\n"
+                        f"Prénom: {student_details['Prenom']}\n"
+                        f"Filière: {student_details['Filière']}\n"
+                        f"Code Salle: {student_details['CodeSalle']}\n"
+                        f"Date de Naissance: {student_details['Date_N']}\n"
+                        f"Code Anonyme: {student_details['Code Anonyme']}"
+                    )
+                    messagebox.showinfo("Informations de l'Étudiant", student_info_text)
+                else:
+                    messagebox.showerror("Error", "No information found for this code.")
+            else:
+                messagebox.showerror("Error", "Please import an Excel file first.")
+                
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred during scanning: {e}")
+
+# Style pour ttk
+style = ttk.Style()
+style.configure("TButton", font=("Helvetica", 12), background="#5cb85c", padding=10)
+style.configure("TLabel", font=("Helvetica", 14), background="#f2f2f2", foreground="#333")
+style.configure("TFrame", background="#f2f2f2")
+
+# Création des cadres pour l'interface
+frame_top = Frame(code_page)
+frame_top.pack(pady=30)
+
+frame_import = Frame(code_page)
+frame_import.pack(pady=20)
+
+frame_generate_barcode = Frame(code_page)
+frame_generate_barcode.pack(pady=20)
+
+frame_generate_qr = Frame(code_page)
+frame_generate_qr.pack(pady=20)
+
+frame_scan_code = Frame(code_page)
+frame_scan_code.pack(pady=20)
+
+# Titre de l'application
+Label(frame_top, text="Import your Excel file", font=("Arial", 18, "bold"), bg="#f2f2f2").pack()
+
+# Bouton pour importer le fichier Excel
+ttk.Button(frame_import, text="Import Excel File", command=import_excel,width=20).pack(fill="x", expand=True, pady=5)
+
+# Bouton pour générer les codes-barres
+ttk.Button(frame_generate_barcode, text="Generate Barcodes", command=save_barcodes_to_excel,width=20).pack(fill="x", expand=True, pady=5)
+
+# Bouton pour générer les QR codes
+ttk.Button(frame_generate_qr, text="Generate QR Codes", command=generate_qr_codes,width=20).pack(fill="x", expand=True, pady=5)
+
+# Bouton pour scanner un code
+ttk.Button(frame_scan_code, text="Scan a Code", command=scan_code,width=20).pack(fill="x", expand=True, pady=5)
+
+
+
+# code page ////////////////////////////////////////////////////////////////////////////////////////
 
 # Professors page /////////////////////////////////////////////////////////////////////////////////////
 # 📧 Configuration Gmail
@@ -487,31 +798,31 @@ def ajouter_professeur():
     # Création de la fenêtre d'ajout plus grande
     fenetre_ajout = tk.Toplevel(professors_page)
     fenetre_ajout.title("Ajouter un Professeur")
-    fenetre_ajout.geometry("600x400")
+    fenetre_ajout.geometry("730x320")
     fenetre_ajout.resizable(False, False)
 
     frame = tk.Frame(fenetre_ajout, padx=30, pady=30)
     frame.pack(expand=True)
 
     # Titre
-    tk.Label(frame, text="Ajouter un Nouveau Professeur", font=("Arial", 16, "bold"), fg="blue").grid(row=0, column=0, columnspan=2, pady=15)
+    tk.Label(frame, text="Ajouter un Nouveau Professeur", font=("Arial", 16, "bold"), fg="black").grid(row=0, column=0, columnspan=2, pady=15)
 
     # Champs de saisie avec labels bien alignés
-    tk.Label(frame, text="Nom :", font=("Arial", 14)).grid(row=1, column=0, sticky="w", pady=10)
-    entry_nom = tk.Entry(frame, font=("Arial", 14), width=40)
+    tk.Label(frame,fg="red" ,text="Nom :", font=("Arial", 12)).grid(row=1, column=0, sticky="w", pady=10)
+    entry_nom = tk.Entry(frame, font=("Arial", 14), width=27)
     entry_nom.grid(row=1, column=1, pady=10)
 
-    tk.Label(frame, text="Prénom :", font=("Arial", 14)).grid(row=2, column=0, sticky="w", pady=10)
-    entry_prenom = tk.Entry(frame, font=("Arial", 14), width=40)
+    tk.Label(frame, fg="red",text="Prénom :", font=("Arial", 12)).grid(row=2, column=0, sticky="w", pady=10)
+    entry_prenom = tk.Entry(frame, font=("Arial", 14), width=27)
     entry_prenom.grid(row=2, column=1, pady=10)
 
-    tk.Label(frame, text="Email :", font=("Arial", 14)).grid(row=3, column=0, sticky="w", pady=10)
-    entry_email = tk.Entry(frame, font=("Arial", 14), width=40)
+    tk.Label(frame,fg="red" ,text="Email :", font=("Arial", 12)).grid(row=3, column=0, sticky="w", pady=10)
+    entry_email = tk.Entry(frame, font=("Arial", 14), width=27)
     entry_email.grid(row=3, column=1, pady=10)
 
     # Boutons d'action bien positionnés
-    btn_sauvegarder = tk.Button(frame, text="Sauvegarder", font=("Arial", 14, "bold"), bg="green", fg="white", command=sauvegarder_professeur, width=button_width, height=button_height)
-    btn_sauvegarder.grid(row=4, column=0, columnspan=2, pady=20, ipadx=20, ipady=5)
+    btn_sauvegarder = tk.Button(frame, text="Sauvegarder", font=("Arial", 12, "bold"), bg="#5D8BCD", fg="white", command=sauvegarder_professeur, width=15, height=1)
+    btn_sauvegarder.grid(row=4, column=0, columnspan=2, pady=20, ipadx=45, ipady=5)
 
 
   # 🖥 Interface Tkinter
@@ -603,6 +914,7 @@ pages["Students list"] = students_page
 pages["Professors list"] = professors_page
 pages["Attendee list"] = attendee_page
 pages["Results"] = results_page
+pages["QR/Bar code"] = code_page
 
 # Show the default page
 show_page("Option")
