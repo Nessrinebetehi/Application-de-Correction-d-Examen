@@ -4,27 +4,10 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 from tkinter import messagebox
-import socket
-import threading  # لتعدد المهام في الخادم
+from db_connector import op_save_data,insert_exam,get_exams,delete_exam
+from db_connector import add_salle,get_all_salles,delete_salle,generate_code_salle
+from db_connector import get_db_connection
 import mysql.connector
-import smtplib
-import ssl
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from tkinter import filedialog, messagebox, ttk
-import pandas as pd
-import secrets
-import string
-import os
-import sqlite3
-from cryptography.fernet import Fernet
-import random
-import barcode
-from barcode.writer import ImageWriter
-from tkinter import filedialog, messagebox, Label, Tk, Entry, Frame
-import qrcode  # Bibliothèque pour générer des QR codes
-from pyzbar.pyzbar import decode
-from PIL import Image  # Bibliothèque pour ouvrir les images scannées
 
 # Create the main window
 window = tk.Tk()
@@ -129,55 +112,85 @@ def add_exams_window():
     coeff_entry = tk.Entry(add_exam_window, width=5)
     coeff_entry.place(x=455, y=39, width=78, height=27)
 
-    columns = ("Module", "Coefficient")
+    columns = ("ID", "Module", "Coefficient")
     table = ttk.Treeview(add_exam_window, columns=columns, show="headings", height=8)
 
+    table.heading("ID", text="ID")
     table.heading("Module", text="Module")
     table.heading("Coefficient", text="Coefficient")
 
+    table.column("ID", width=50, anchor="center")
     table.column("Module", width=300, anchor="center")
     table.column("Coefficient", width=100, anchor="center")
 
     table.place(x=14, y=92, width=705, height=160)
 
+    def load_exams():
+        """تحميل الامتحانات من قاعدة البيانات وعرضها في الجدول"""
+        for row in table.get_children():
+            table.delete(row)
+
+        exams = get_exams()
+        for exam in exams:
+            table.insert("", "end", values=exam)
+
     def add_item():
+        """إضافة امتحان جديد إلى قاعدة البيانات وعرضه في الجدول"""
         if len(table.get_children()) < num_exams:
             module = module_entry.get().strip()
             coeff = coeff_entry.get().strip()
 
-            if module and coeff.isdigit():
-                table.insert("", "end", values=(module, coeff))
-                module_entry.delete(0, tk.END)
-                coeff_entry.delete(0, tk.END)
+            if module and coeff.replace('.', '', 1).isdigit():
+                candidat_id = 1  # يجب تعيين هذا الرقم بناءً على البيانات الفعلية
+
+                result = insert_exam(candidat_id, module, float(coeff))
+
+                if result is True:
+                    load_exams()  # تحديث الجدول بعد الإدخال
+                    module_entry.delete(0, tk.END)
+                    coeff_entry.delete(0, tk.END)
+                    messagebox.showinfo("Success", "Exam added successfully!")
+                else:
+                    messagebox.showerror("Database Error", f"Error: {result}")
             else:
                 messagebox.showerror("Error", "Please enter a valid Module and Coefficient!")
         else:
             messagebox.showwarning("Warning", f"You can only add {num_exams} exams!")
 
     def delete_item():
+        """حذف الامتحان المحدد من قاعدة البيانات"""
         selected_item = table.selection()
         if selected_item:
             for item in selected_item:
-                table.delete(item)
+                exam_id = table.item(item)["values"][0]  # جلب ID الامتحان
+                result = delete_exam(exam_id)
+
+                if result is True:
+                    table.delete(item)
+                    messagebox.showinfo("Success", "Exam deleted successfully!")
+                else:
+                    messagebox.showerror("Database Error", f"Error: {result}")
         else:
-            messagebox.showwarning("Warning", "Please select an item to delete.")
+            messagebox.showwarning("Warning", "Please select an exam to delete.")
 
     add_button = tk.Button(add_exam_window, text="Add", bg="#00B400", fg="white", command=add_item, width=8, bd=0)
     add_button.place(x=590, y=39, width=91, height=27)
 
     delete_button = tk.Button(add_exam_window, text="Delete", bg="#D10801", fg="white", command=delete_item, width=10, bd=0)
     delete_button.place(x=411, y=280, width=147, height=27)
-    
 
     done_button = tk.Button(add_exam_window, text="Done", bg="#00B400", fg="white", command=add_exam_window.destroy, width=10, bd=0)
     done_button.place(x=570, y=280, width=147, height=27)
+
+    load_exams()  # تحميل الامتحانات عند فتح النافذة
+
 
 tk.Label(option_page, text="Add exams", font=("Arial", 14), bg="white").place(x=24, y=227)
 add_exams_btn = tk.Button(option_page, text="Add", font=("Arial", 16), bg="#5D8BCD", fg="white", bd=0, command=add_exams_window)
 add_exams_btn.place(x=190, y=230, width=148, height=27)
 
 def add_salles_window():
-    add_salle_window = tk.Toplevel(window)
+    add_salle_window = tk.Toplevel()
     add_salle_window.title("Add Salles")
     add_salle_window.geometry("730x320")
     add_salle_window.configure(bg="white")
@@ -192,33 +205,59 @@ def add_salles_window():
     capacity_entry = tk.Entry(add_salle_window, width=5)
     capacity_entry.place(x=455, y=39, width=78, height=27)
 
-    columns = ("Salle name", "Capacity")
+    columns = ("Code Salle", "Salle name", "Capacity")
     table = ttk.Treeview(add_salle_window, columns=columns, show="headings", height=8)
 
+    table.heading("Code Salle", text="Code Salle")
     table.heading("Salle name", text="Salle name")
     table.heading("Capacity", text="Capacity")
 
+    table.column("Code Salle", width=150, anchor="center")
     table.column("Salle name", width=300, anchor="center")
     table.column("Capacity", width=100, anchor="center")
 
     table.place(x=14, y=92, width=705, height=160)
 
+    def load_salles():
+        """تحميل القاعات من قاعدة البيانات وعرضها في الجدول"""
+        for row in table.get_children():
+            table.delete(row)
+
+        salles = get_all_salles()  # جلب جميع القاعات من قاعدة البيانات
+        for salle in salles:
+            table.insert("", "end", values=salle)
+
     def add_item():
+        """إضافة قاعة جديدة وحفظها في قاعدة البيانات"""
         salle = salle_entry.get().strip()
         capacity = capacity_entry.get().strip()
 
         if salle and capacity.isdigit():
-            table.insert("", "end", values=(salle, capacity))
-            salle_entry.delete(0, tk.END)
-            capacity_entry.delete(0, tk.END)
+            try:
+                code_salle = add_salle(salle, int(capacity))  # استدعاء الدالة من database.py
+                table.insert("", "end", values=(code_salle, salle, capacity))
+
+                salle_entry.delete(0, tk.END)
+                capacity_entry.delete(0, tk.END)
+
+                messagebox.showinfo("Success", "Salle added successfully!")
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Error: {e}")
+
         else:
             messagebox.showerror("Error", "Please enter a valid Salle name and Capacity!")
 
     def delete_item():
+        """حذف القاعة من الجدول ومن قاعدة البيانات"""
         selected_item = table.selection()
         if selected_item:
             for item in selected_item:
+                code_salle = table.item(item)["values"][0]  # جلب `code_salle`
+                delete_salle(code_salle)  # استدعاء دالة الحذف
+
                 table.delete(item)
+                messagebox.showinfo("Success", "Salle deleted successfully!")
+
         else:
             messagebox.showwarning("Warning", "Please select an item to delete.")
 
@@ -231,186 +270,72 @@ def add_salles_window():
     done_button = tk.Button(add_salle_window, text="Done", bg="#00B400", fg="white", command=add_salle_window.destroy, width=10, bd=0)
     done_button.place(x=570, y=280, width=147, height=27)
 
+    load_salles()  # تحميل القاعات عند فتح النافذة
+
 tk.Label(option_page, text="Add salles", font=("Arial", 14), bg="white").place(x=24, y=275)
 add_salles_btn = tk.Button(option_page, text="Add", font=("Arial", 16), bg="#5D8BCD", fg="white", bd=0, command=add_salles_window)
 add_salles_btn.place(x=190, y=275, width=148, height=27)
 
-op_done_btn = tk.Button(option_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0)
+def on_save():
+    institute_name = institute_entry.get()
+    exam_option = option_entry.get()
+    name_post = name_post_entry.get()
+    nbr_exams = nbr_exams_combobox.get()
+
+    result = op_save_data(institute_name, exam_option, name_post, nbr_exams)
+
+    if "✅" in result:
+        messagebox.showinfo("نجاح", result)
+        institute_entry.delete(0, tk.END)
+        option_entry.delete(0, tk.END)
+        name_post_entry.delete(0, tk.END)
+        nbr_exams_combobox.current(0)
+    else:
+        messagebox.showerror("خطأ", result)
+
+# زر الإضافة
+op_done_btn = tk.Button(option_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=on_save)
 op_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 
 # Option page /////////////////////////////////////////////////////////////////////////////////////
 
 # Students page /////////////////////////////////////////////////////////////////////////////////////
+tk.Label(students_page, text="Students list", font=("Arial", 14), bg="white").place(x=22, y=27)
+st_import_btn = tk.Button(students_page, text="Import List", font=("Arial", 14), bg="#D9D9D9", fg="black", bd=0)
+st_import_btn.place(x=163, y=27, width=148, height=27)
 
-# Fonction pour générer un code aléatoire unique
-def generate_code(length=8):
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
+separator = ttk.Separator(students_page, orient="horizontal")
+separator.place(x=270, y=66, width=300, height=2)
 
-# Fonction pour importer et anonymiser un fichier Excel
-def import_excel():
-    global df  # Pour qu'on puisse accéder à df dans d'autres fonctions
-    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
-    
-    if file_path:
-        df = pd.read_excel(file_path)
-        
-        # Vérifier si les colonnes nécessaires existent
-        required_columns = ['Nom', 'Prenom', 'Filière', 'CodeSalle', 'Date_N']
-        if all(col in df.columns for col in required_columns):
-            
-            # Création d'une copie pour l'administration
-            df_admin = df.copy()
+tk.Label(students_page, text="Option", font=("Arial", 14), bg="white").place(x=22, y=82)
+option_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
+option_entry.place(x=163, y=80, width=237, height=36)
 
-            # Ajout d'une colonne avec des codes anonymes
-            df['Code Anonyme'] = [generate_code() for _ in range(len(df))]
-            
-            # Ajouter le code anonyme dans la copie pour l'administration
-            df_admin['Code Anonyme'] = df['Code Anonyme']
-            
-            # Création du fichier anonymisé (sans nom, prénom, date de naissance)
-            df_anonymized = df[['Code Anonyme', 'Filière', 'CodeSalle']]
-            
-            # Sauvegarder les fichiers
-            save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")], title="Save the file")
-            
-            if save_path:
-                with pd.ExcelWriter(save_path) as writer:
-                    df_anonymized.to_excel(writer, sheet_name="Anonymized", index=False)
-                    df_admin.to_excel(writer, sheet_name="Administration", index=False)
-                
-                messagebox.showinfo("Success", "Files saved successfully!")
-                display_data(df)
-        else:
-            messagebox.showerror("Error", "The file does not contain all the required columns!")
+tk.Label(students_page, text="Name", font=("Arial", 14), bg="white").place(x=22, y=127)
+name_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
+name_entry.place(x=163, y=125, width=237, height=36)
 
-# Fonction pour afficher les candidats avec leur code anonyme
-def display_data(df):
-    for i in tree.get_children():
-        tree.delete(i)
-    for _, row in df.iterrows():
-        tree.insert("", "end", values=(row['Nom'], row['Prenom'], row['Filière'], row['CodeSalle'], row['Date_N'], row['Code Anonyme']))
+tk.Label(students_page, text="Surname", font=("Arial", 14), bg="white").place(x=22, y=175)
+surname_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
+surname_entry.place(x=163, y=173, width=237, height=36)
 
-# Fonction pour ajouter un candidat manuellement
-def add_candidate(entry_nom, entry_prenom, entry_filiere, entry_codesalle, entry_date_n):
-    nom = entry_nom.get()
-    prenom = entry_prenom.get()
-    filiere = entry_filiere.get()
-    codesalle = entry_codesalle.get()
-    date_n = entry_date_n.get()
-    
-    if not nom or not prenom or not filiere or not codesalle or not date_n:
-        messagebox.showwarning("Error", "Please fill in all the information.")
-        return
-    
-    # Génération d'un code anonyme pour ce candidat
-    code_anonyme = generate_code()
-    
-    # Ajouter ce candidat à la DataFrame
-    global df
-    new_row = pd.DataFrame([[nom, prenom, filiere, codesalle, date_n, code_anonyme]], columns=['Nom', 'Prenom', 'Filière', 'CodeSalle', 'Date_N', 'Code Anonyme'])
-    df = pd.concat([df, new_row], ignore_index=True)
-    
-    # Mise à jour de l'affichage dans le tableau
-    display_data(df)
-    
-    # Demander où sauvegarder le fichier Excel
-    save_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")], title="Save the file")
-    
-    if save_path:
-        df_admin = df.copy()
-        df_anonymized = df[['Code Anonyme', 'Filière', 'CodeSalle']]
-        
-        with pd.ExcelWriter(save_path) as writer:
-            df_anonymized.to_excel(writer, sheet_name="Anonymized", index=False)
-            df_admin.to_excel(writer, sheet_name="Administration", index=False)
-        
-        messagebox.showinfo("Success", "Candidate added and file saved successfully!")
+tk.Label(students_page, text="Date of Birth", font=("Arial", 14), bg="white").place(x=22, y=225)
+dob_entry = DateEntry(students_page, font=("Arial", 14), bg="white", fg="black", 
+                      date_pattern="yyyy-mm-dd", width=18)
+dob_entry.place(x=163, y=220, width=237, height=36)
 
-# Fonction pour ouvrir la fenêtre d'ajout de candidat
-def open_add_candidate_window():
-    add_candidate_window = tk.Toplevel(students_page)
-    add_candidate_window.title("Add Candidate")
-    add_candidate_window.configure(bg="white")
-    add_candidate_window.geometry("750x450")
-    
-    
-    # Définir la taille minimale et maximale de la fenêtre d'ajout de candidat
-    add_candidate_window.minsize(750, 450)  # Taille minimale
-    add_candidate_window.maxsize(750, 450)  # Taille maximale
-    
-    # Création d'un cadre principal pour une organisation propre
-    frame_main = tk.Frame(add_candidate_window, padx=20, pady=20)
-    frame_main.pack(fill="both", expand=True, padx=10, pady=10)
-    
-    # Titre de la fenêtre
-    tk.Label(frame_main, text="Add Candidate", font=("Arial", 18, "bold")).grid(row=0, column=0, columnspan=2, pady=20)
-    
-    # Création des champs de saisie
-    tk.Label(frame_main, text="Name:", font=("Arial", 12)).grid(row=1, column=0, sticky="w", pady=5)
-    entry_nom = tk.Entry(frame_main, font=("Arial", 12))
-    entry_nom.grid(row=1, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
+tk.Label(students_page, text="Sex", font=("Arial", 14), bg="white").place(x=414, y=82)
+sex_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
+sex_combobox['values'] = ("Male", "Female")
+sex_combobox.place(x=480, y=80, width=175, height=36)
 
-    tk.Label(frame_main, text="First Name:", font=("Arial", 12)).grid(row=2, column=0, sticky="w", pady=5)
-    entry_prenom = tk.Entry(frame_main, font=("Arial", 12))
-    entry_prenom.grid(row=2, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
+tk.Label(students_page, text="Salle", font=("Arial", 14), bg="white").place(x=414, y=127)
+salle_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
+salle_combobox['values'] = ("A", "B", "C", "D")
+salle_combobox.place(x=480, y=125, width=175, height=36)
 
-    tk.Label(frame_main, text="Course:",font=("Arial", 12)).grid(row=3, column=0, sticky="w", pady=5)
-    entry_filiere = tk.Entry(frame_main, font=("Arial", 12))
-    entry_filiere.grid(row=3, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
-
-    tk.Label(frame_main, text="Room Code:",font=("Arial", 12)).grid(row=4, column=0, sticky="w", pady=5)
-    entry_codesalle = tk.Entry(frame_main, font=("Arial", 12))
-    entry_codesalle.grid(row=4, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
-
-    tk.Label(frame_main, text="Date of Birth:",font=("Arial", 12)).grid(row=5, column=0, sticky="w", pady=5)
-    entry_date_n = tk.Entry(frame_main, font=("Arial", 12))
-    entry_date_n.grid(row=5, column=1, padx=10, pady=5, ipadx=5, ipady=5, sticky="ew")
-    
-    # Ajouter un bouton pour soumettre les informations
-    btn_add_candidate = tk.Button(frame_main, text="Add Candidate", font=("Arial", 12), command=lambda: add_candidate(entry_nom, entry_prenom, entry_filiere, entry_codesalle, entry_date_n), bg="#5D8BCD", fg="white")
-    btn_add_candidate.grid(row=6, column=0, columnspan=2, pady=20, padx=10, sticky="ew")
-    
-    # Bouton pour revenir à la fenêtre principale
-    btn_back = tk.Button(frame_main, text="Back", font=("Arial", 12), command=add_candidate_window.destroy, bg="black", fg="white")
-    btn_back.grid(row=7, column=0, columnspan=2, pady=10, padx=10, sticky="ew")
-
-def export_excel():
-    global df, file_path
-    if df is not None and file_path:
-        with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False)
-        messagebox.showinfo("Success", "Données mises à jour et sauvegardées dans le fichier d'origine!")
-    else:
-        messagebox.showwarning("Warning", "Aucun fichier importé!")
-
-# Cadre pour les boutons
-frame_buttons = tk.Frame(students_page)
-frame_buttons.configure(bg="white")
-frame_buttons.pack(pady=10)
-
-btn_import = tk.Button(frame_buttons, text="Import Excel File",font=("Arial", 11), command=import_excel, width=20, bg="#5D8BCD", fg="white")
-btn_import.grid(row=0, column=0, padx=10, pady=10)
-
-btn_export = tk.Button(frame_buttons, text="Export Data",font=("Arial", 11),command=export_excel, width=20, bg="#5D8BCD", fg="white")
-btn_export.grid(row=0, column=1, padx=10, pady=10)
-
-btn_add_candidate_window = tk.Button(frame_buttons, text="Add Candidate Manually",font=("Arial", 11), command=open_add_candidate_window, width=20,bg="#00B400", fg="white")
-btn_add_candidate_window.grid(row=0, column=2, padx=10, pady=10)
-
-
-# Label de statut
-lbl_status = tk.Label(students_page, text="Select a file to anonymize", fg="red")  # Changer la couleur du texte ici
-lbl_status.pack()
-
-# Tableau pour afficher les candidats avec leurs codes anonymes
-columns = ("Name", "First Name", "Course", "Room Code", "Date of Birth", "Anonymous Code")
-tree = ttk.Treeview(students_page, columns=columns, show="headings")
-for col in columns:
-    tree.heading(col, text=col)
-    tree.column(col, width=100)
-tree.pack(expand=True, fill="both", padx=10, pady=10)
-
-
+st_done_btn = tk.Button(students_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0)
+st_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 # Students page /////////////////////////////////////////////////////////////////////////////////////
 # code page ////////////////////////////////////////////////////////////////////////////////////////
 
