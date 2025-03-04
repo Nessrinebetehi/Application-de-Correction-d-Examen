@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
+from db_connector import get_exam_options,fetch_exam_modules,fetch_exam_details
 
 # إنشاء النافذة الرئيسية
 window = tk.Tk()
@@ -63,19 +64,104 @@ Corrections_page = tk.Frame(window, bg="white")
 About_page = tk.Frame(window, bg="white")
 
 # Correction Page ////////////////////////////////////////////////////////////////////////////////
-tk.Label(Corrections_page, text="Students List", font=("Arial", 14), bg="white").place(x=24, y=34)
-import_btn = tk.Button(Corrections_page, text="Export", font=("Arial", 12), bg="#D9D9D9", bd=0)
-import_btn.place(x=170, y=36, width=162, height=26)
+tk.Label(Corrections_page, text="Option", font=("Arial", 14), bg="white").place(x=24, y=30)
+def update_combobox():
+    """Update combobox values dynamically"""
+    new_options = get_exam_options()  # استرجاع القيم الجديدة من قاعدة البيانات
+    cr_option["values"] = new_options  # تحديث القيم في Combobox
 
+    # إذا كانت القائمة تحتوي على عناصر، اضبط العنصر الافتراضي على الأول
+    if new_options:
+        cr_option.current(0)
+
+    Corrections_page.after(5000, update_combobox)  # جدولة التحديث بعد 5 ثوانٍ
+
+options = get_exam_options()
+cr_option= ttk.Combobox(Corrections_page, values=options,state="readonly")
+cr_option.place(x=135, y=26, width=237, height=36)
+update_combobox()
+
+tk.Label(Corrections_page, text="Anonymat", font=("Arial", 14), bg="white").place(x=24, y=90)
+cr_anonyme_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
+cr_anonyme_entry.place(x=135, y=84, width=114, height=36)
+
+def update_entry_state(event):
+    """Enable only the selected correction entry and disable the others."""
+    selected_correction = cr_number.get()
+    
+    # Disable all entries first
+    cr_1_entry.config(state="disabled")
+    cr_2_entry.config(state="disabled")
+    cr_3_entry.config(state="disabled")
+    
+    # Enable the selected correction entry
+    if selected_correction == "1":
+        cr_1_entry.config(state="normal")
+    elif selected_correction == "2":
+        cr_2_entry.config(state="normal")
+    elif selected_correction == "3":
+        cr_3_entry.config(state="normal")
+
+# Labels and UI elements
+tk.Label(Corrections_page, text="Corrections", font=("Arial", 14), bg="white").place(x=430, y=90)
+cr_number = ttk.Combobox(Corrections_page, state="readonly")
+cr_number["values"] = [1, 2, 3]  # Adding values to the combobox
+cr_number.place(x=540, y=84, width=95, height=36)
+cr_number.bind("<<ComboboxSelected>>", update_entry_state)  # Bind event
+
+# Separator line
 separator = tk.Frame(Corrections_page, bg="#D9D9D9", height=2)
-separator.place(x=216, y=96, width=360)  # تحديد الموقع تحت زر Import مباشرة
+separator.place(x=100, y=155, width=560)
 
-tk.Label(Corrections_page, text="List of grades", font=("Arial", 14), bg="white").place(x=24, y=134)
-import_btn = tk.Button(Corrections_page, text="Import", font=("Arial", 12), bg="#D9D9D9", bd=0)
-import_btn.place(x=170, y=134, width=162, height=26)
+tk.Label(Corrections_page, text="Exam :", font=("Arial", 14, "bold"), bg="white").place(x=24, y=140)
 
-done_btn = tk.Button(Corrections_page, text="Done", font=("Arial", 12), bg="#00B400", fg="white", bd=0)
-done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")  # Using relx for responsive positioning
+def update_exam_details(event):
+    selected_exam = cr_exam.get()
+    subject, coeff = fetch_exam_details(selected_exam)
+    
+    subject_label.config(text=subject)  # Update subject label
+    coeff_label.config(text=str(coeff))  # Update coefficient label
+
+# Label and Combobox for Exam Selection
+tk.Label(Corrections_page, text="Exam", font=("Arial", 14), bg="white").place(x=264, y=90)
+cr_exam = ttk.Combobox(Corrections_page, state="readonly")
+cr_exam.place(x=325, y=84, width=95, height=36)
+
+# Populate Combobox
+exam_modules = fetch_exam_modules()
+cr_exam["values"] = exam_modules  
+cr_exam.bind("<<ComboboxSelected>>", update_exam_details)  # Bind event to update labels
+
+# Labels for Subject and Coefficient
+tk.Label(Corrections_page, text="Subject :", font=("Arial", 14), bg="white").place(x=24, y=180)
+subject_label = tk.Label(Corrections_page, text="", font=("Arial", 14), bg="white")
+subject_label.place(x=140, y=180)
+
+tk.Label(Corrections_page, text="Coeffs :", font=("Arial", 14), bg="white").place(x=370, y=180)
+coeff_label = tk.Label(Corrections_page, text="", font=("Arial", 14), bg="white")
+coeff_label.place(x=490, y=180)
+
+
+tk.Label(Corrections_page, text="Correction 1", font=("Arial", 14), bg="white").place(x=24, y=230)
+cr_1_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="disabled")
+cr_1_entry.place(x=140, y=225, width=114, height=36)
+
+tk.Label(Corrections_page, text="Correction 2", font=("Arial", 14), bg="white").place(x=24, y=275)
+cr_2_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="disabled")
+cr_2_entry.place(x=140, y=270, width=114, height=36)
+
+tk.Label(Corrections_page, text="Correction 3", font=("Arial", 14), bg="white").place(x=370, y=230)
+cr_3_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="disabled")
+cr_3_entry.place(x=490, y=225, width=114, height=36)
+
+tk.Label(Corrections_page, text="Finale grade", font=("Arial", 14), bg="white").place(x=370, y=275)
+cr_grade_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="readonly")
+cr_grade_entry.place(x=490, y=270, width=114, height=36)
+
+
+cr_done_btn = tk.Button(Corrections_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0)
+cr_done_btn.place(relx=0.97, y=290, width=148, height=27, anchor="e")
+
 # Correction Page ////////////////////////////////////////////////////////////////////////////////
 
 # About Page /////////////////////////////////////////////////////////////////////////////////////

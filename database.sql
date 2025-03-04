@@ -29,38 +29,36 @@ CREATE TABLE institutes (
     name_post VARCHAR(50) NOT NULL,
     nbr_exams integer
 );
-
--- جدول القاعات (Salles) مع ربطه بالمعاهد
 CREATE TABLE salles (
     code_salle VARCHAR(50) PRIMARY KEY,
     name_salle VARCHAR(30) UNIQUE NOT NULL,
     capacity INT NOT NULL CHECK (capacity > 0),
-    institute_id INT NOT NULL,
+    institute_id INT NOT NULL
 );
 
--- جدول المترشحين
 CREATE TABLE candidats (
     id INT AUTO_INCREMENT PRIMARY KEY, 
     name VARCHAR(50) NOT NULL,        
     surname VARCHAR(50) NOT NULL,      
-    birthday DATE NOT NULL,            
+    birthday DATE NOT NULL,           
     sex ENUM('Male', 'Female') NOT NULL, 
     anonymous_id VARCHAR(255) UNIQUE NOT NULL,
-    moyen DECIMAL(5, 2) NOT NULL CHECK (moyen BETWEEN 0 AND 20),
+    moyen DECIMAL(5, 2) NOT NULL DEFAULT 10.00 CHECK (moyen BETWEEN 0 AND 20),
     decision ENUM('Accepted', 'Rejected', 'Pending') NOT NULL DEFAULT 'Pending', 
     absence INT DEFAULT 0 CHECK (absence >= 0),
-    institute_id INT NOT NULL,
-    FOREIGN KEY (institute_id) REFERENCES institutes(id) ON DELETE CASCADE
+    salle_name VARCHAR(50), 
+    FOREIGN KEY (salle_name) REFERENCES salles(name_salle) ON DELETE SET NULL
 );
 
 -- جدول الامتحانات
 CREATE TABLE exams (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    candidat_id INT NOT NULL,
+    candidat_id INT NULL,  -- السماح بأن يكون NULL
     module_name VARCHAR(100) NOT NULL,  
     coefficient DECIMAL(4, 2) NOT NULL CHECK (coefficient >= 1),
     grade_1 DECIMAL(5, 2) CHECK (grade_1 BETWEEN 0 AND 20),
     grade_2 DECIMAL(5, 2) CHECK (grade_2 BETWEEN 0 AND 20),
-    grade_3 DECIMAL(5, 2) CHECK (grade_3 BETWEEN 0 AND 20), 
-
+    grade_3 DECIMAL(5, 2) CHECK (grade_3 BETWEEN 0 AND 20),
+    finale_g DECIMAL(5, 2) CHECK (finale_g BETWEEN 0 AND 20),
+    FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE SET NULL
 );

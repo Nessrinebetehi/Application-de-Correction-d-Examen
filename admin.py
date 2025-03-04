@@ -4,10 +4,18 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 from tkcalendar import DateEntry
 from tkinter import messagebox
+from tkinter import filedialog, messagebox
+from tkinter.filedialog import asksaveasfilename
+import pandas as pd
+import os
+import qrcode
 from db_connector import op_save_data,insert_exam,get_exams,delete_exam
 from db_connector import add_salle,get_all_salles,delete_salle,generate_code_salle
 from db_connector import get_db_connection
+from db_connector import get_salle_names,update_salle_comboboxes,get_exam_options,save_student,import_students_from_excel 
+from db_connector import get_candidates_by_salle,get_all_candidates,import_absences
 import mysql.connector
+
 
 # Create the main window
 window = tk.Tk()
@@ -37,7 +45,7 @@ menu_frame = tk.Frame(window, bg="#5A7EC7")
 menu_frame.pack(fill=tk.X, side=tk.TOP)
 
 # Define button names
-menu_buttons = ["Option", "Students list","QR/Bar code", "Professors list", "Attendee list", "Results"]
+menu_buttons = ["Option", "Students list", "Professors list", "Attendee list", "Results"]
 button_width = 15
 
 # Create a dictionary to store pages
@@ -73,7 +81,6 @@ students_page = tk.Frame(window, bg="white")
 professors_page = tk.Frame(window, bg="white")
 attendee_page = tk.Frame(window, bg="white")
 results_page = tk.Frame(window, bg="white")
-code_page=tk.Frame(window, bg="white")
 
 # Option page /////////////////////////////////////////////////////////////////////////////////////
 tk.Label(option_page, text="Institute", font=("Arial", 14), bg="white").place(x=24, y=15)
@@ -126,7 +133,7 @@ def add_exams_window():
     table.place(x=14, y=92, width=705, height=160)
 
     def load_exams():
-        """تحميل الامتحانات من قاعدة البيانات وعرضها في الجدول"""
+        """Load exams from the database and display them in the table"""
         for row in table.get_children():
             table.delete(row)
 
@@ -135,21 +142,20 @@ def add_exams_window():
             table.insert("", "end", values=exam)
 
     def add_item():
-        """إضافة امتحان جديد إلى قاعدة البيانات وعرضه في الجدول"""
+        """Add a new exam to the database and display it in the table"""
         if len(table.get_children()) < num_exams:
             module = module_entry.get().strip()
             coeff = coeff_entry.get().strip()
 
             if module and coeff.replace('.', '', 1).isdigit():
-                candidat_id = 1  # يجب تعيين هذا الرقم بناءً على البيانات الفعلية
+                candidat_id = 1  # This should be set based on actual data
 
                 result = insert_exam(candidat_id, module, float(coeff))
 
                 if result is True:
-                    load_exams()  # تحديث الجدول بعد الإدخال
+                    load_exams()  # Refresh the table after insertion
                     module_entry.delete(0, tk.END)
                     coeff_entry.delete(0, tk.END)
-                    messagebox.showinfo("Success", "Exam added successfully!")
                 else:
                     messagebox.showerror("Database Error", f"Error: {result}")
             else:
@@ -158,16 +164,15 @@ def add_exams_window():
             messagebox.showwarning("Warning", f"You can only add {num_exams} exams!")
 
     def delete_item():
-        """حذف الامتحان المحدد من قاعدة البيانات"""
+        """Delete the selected exam from the database"""
         selected_item = table.selection()
         if selected_item:
             for item in selected_item:
-                exam_id = table.item(item)["values"][0]  # جلب ID الامتحان
+                exam_id = table.item(item)["values"][0]  # Retrieve exam ID
                 result = delete_exam(exam_id)
 
                 if result is True:
                     table.delete(item)
-                    messagebox.showinfo("Success", "Exam deleted successfully!")
                 else:
                     messagebox.showerror("Database Error", f"Error: {result}")
         else:
@@ -219,7 +224,6 @@ def add_salles_window():
     table.place(x=14, y=92, width=705, height=160)
 
     def load_salles():
-        """تحميل القاعات من قاعدة البيانات وعرضها في الجدول"""
         for row in table.get_children():
             table.delete(row)
 
@@ -228,38 +232,35 @@ def add_salles_window():
             table.insert("", "end", values=salle)
 
     def add_item():
-        """إضافة قاعة جديدة وحفظها في قاعدة البيانات"""
         salle = salle_entry.get().strip()
         capacity = capacity_entry.get().strip()
 
         if salle and capacity.isdigit():
             try:
-                code_salle = add_salle(salle, int(capacity))  # استدعاء الدالة من database.py
+                code_salle = add_salle(salle, int(capacity))  # Call function from database.py
                 table.insert("", "end", values=(code_salle, salle, capacity))
 
                 salle_entry.delete(0, tk.END)
                 capacity_entry.delete(0, tk.END)
 
-                messagebox.showinfo("Success", "Salle added successfully!")
             except Exception as e:
                 messagebox.showerror("Database Error", f"Error: {e}")
 
         else:
-            messagebox.showerror("Error", "Please enter a valid Salle name and Capacity!")
+            messagebox.showerror("Error", "Please enter a valid Hall name and Capacity!")
 
     def delete_item():
-        """حذف القاعة من الجدول ومن قاعدة البيانات"""
         selected_item = table.selection()
         if selected_item:
             for item in selected_item:
-                code_salle = table.item(item)["values"][0]  # جلب `code_salle`
-                delete_salle(code_salle)  # استدعاء دالة الحذف
+                code_salle = table.item(item)["values"][0]  # Retrieve `code_salle`
+                delete_salle(code_salle)  # Call delete function
 
                 table.delete(item)
-                messagebox.showinfo("Success", "Salle deleted successfully!")
 
         else:
             messagebox.showwarning("Warning", "Please select an item to delete.")
+
 
     add_button = tk.Button(add_salle_window, text="Add", bg="#00B400", fg="white", command=add_item, width=8, bd=0)
     add_button.place(x=590, y=39, width=91, height=27)
@@ -276,40 +277,76 @@ tk.Label(option_page, text="Add salles", font=("Arial", 14), bg="white").place(x
 add_salles_btn = tk.Button(option_page, text="Add", font=("Arial", 16), bg="#5D8BCD", fg="white", bd=0, command=add_salles_window)
 add_salles_btn.place(x=190, y=275, width=148, height=27)
 
-def on_save():
-    institute_name = institute_entry.get()
-    exam_option = option_entry.get()
-    name_post = name_post_entry.get()
-    nbr_exams = nbr_exams_combobox.get()
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import ttk
 
+def on_save():
+    institute_name = institute_entry.get().strip()
+    exam_option = option_entry.get().strip()
+    name_post = name_post_entry.get().strip()
+    nbr_exams = nbr_exams_combobox.get().strip()
+
+    # Check for empty fields
+    if not institute_name or not exam_option or not name_post or not nbr_exams:
+        messagebox.showerror("Error", "Please fill in all required fields.")
+        return
+    
     result = op_save_data(institute_name, exam_option, name_post, nbr_exams)
 
     if "✅" in result:
-        messagebox.showinfo("نجاح", result)
+        messagebox.showinfo("Success", result)
+        # Reset fields after successful save
         institute_entry.delete(0, tk.END)
         option_entry.delete(0, tk.END)
         name_post_entry.delete(0, tk.END)
         nbr_exams_combobox.current(0)
     else:
-        messagebox.showerror("خطأ", result)
+        messagebox.showerror("Error", result)
 
-# زر الإضافة
+# Add button
 op_done_btn = tk.Button(option_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=on_save)
 op_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
+
 
 # Option page /////////////////////////////////////////////////////////////////////////////////////
 
 # Students page /////////////////////////////////////////////////////////////////////////////////////
 tk.Label(students_page, text="Students list", font=("Arial", 14), bg="white").place(x=22, y=27)
-st_import_btn = tk.Button(students_page, text="Import List", font=("Arial", 14), bg="#D9D9D9", fg="black", bd=0)
+
+students_data = None
+def import_excel():
+    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
+    if file_path:
+        result = import_students_from_excel(file_path)
+        messagebox.showinfo("نتيجة الاستيراد", result)
+
+st_import_btn = tk.Button(students_page, text="Import List", font=("Arial", 14), bg="#D9D9D9", fg="black", bd=0, command=import_excel)
 st_import_btn.place(x=163, y=27, width=148, height=27)
 
 separator = ttk.Separator(students_page, orient="horizontal")
 separator.place(x=270, y=66, width=300, height=2)
 
 tk.Label(students_page, text="Option", font=("Arial", 14), bg="white").place(x=22, y=82)
-option_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
-option_entry.place(x=163, y=80, width=237, height=36)
+
+
+def update_combobox():
+    """Update combobox values dynamically"""
+    new_options = get_exam_options()  # استرجاع القيم الجديدة من قاعدة البيانات
+    st_option_combo["values"] = new_options  # تحديث القيم في Combobox
+
+    # إذا كانت القائمة تحتوي على عناصر، اضبط العنصر الافتراضي على الأول
+    if new_options:
+        st_option_combo.current(0)
+
+    students_page.after(5000, update_combobox)  # جدولة التحديث بعد 5 ثوانٍ
+
+options = get_exam_options()
+st_option_combo = ttk.Combobox(students_page, values=options, font=("Arial", 14), state="readonly")
+st_option_combo.place(x=163, y=80, width=237, height=36)
+st_option_combo.current(0)  # تحديد الخيار الافتراضي
+
+update_combobox()
 
 tk.Label(students_page, text="Name", font=("Arial", 14), bg="white").place(x=22, y=127)
 name_entry = tk.Entry(students_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
@@ -329,488 +366,219 @@ sex_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
 sex_combobox['values'] = ("Male", "Female")
 sex_combobox.place(x=480, y=80, width=175, height=36)
 
-tk.Label(students_page, text="Salle", font=("Arial", 14), bg="white").place(x=414, y=127)
-salle_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
-salle_combobox['values'] = ("A", "B", "C", "D")
-salle_combobox.place(x=480, y=125, width=175, height=36)
+#//////////////////////////////////////////////////////
+def update_salle_combobox():
+    """Fetches updated salle names from the database and updates the combobox."""
+    salles = get_salle_names()
+    st_salle_combobox['values'] = salles  # Update the list
+    if salles:
+        st_salle_combobox.current(0)  # Set default selection
+    students_page.after(5000, update_salle_combobox)  # Schedule next update
 
-st_done_btn = tk.Button(students_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0)
+
+tk.Label(students_page, text="Salle", font=("Arial", 14), bg="white").place(x=414, y=127)
+st_salle_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
+st_salle_combobox.place(x=480, y=125, width=175, height=36)
+st_salle_combobox['values'] = get_salle_names()
+
+update_salle_combobox()
+
+def save_student_data():
+    name = name_entry.get().strip()
+    surname = surname_entry.get().strip()
+    dob = dob_entry.get_date().strftime("%Y-%m-%d") if dob_entry.get_date() else ""
+    sex = sex_combobox.get().strip()
+    salle = st_salle_combobox.get().strip()
+    exam_option = st_option_combo.get().strip()
+
+    # Check for empty fields
+    if not name or not surname or not dob or not sex or not salle or not exam_option:
+        messagebox.showerror("Error", "Please fill in all required fields.")
+        return
+
+    result = save_student(name, surname, dob, sex, salle, exam_option)
+
+    if "✅" in result:
+        messagebox.showinfo("Success", result)
+        # Reset fields after successful save
+        name_entry.delete(0, tk.END)
+        surname_entry.delete(0, tk.END)
+        dob_entry.set_date("")  # Assuming dob_entry supports setting an empty date
+        sex_combobox.current(0)
+        st_salle_combobox.current(0)
+        st_option_combo.current(0)
+    else:
+        messagebox.showerror("Error", result)
+
+# "Done" button linked to the save function
+st_done_btn = tk.Button(students_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=save_student_data)
 st_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 # Students page /////////////////////////////////////////////////////////////////////////////////////
-# code page ////////////////////////////////////////////////////////////////////////////////////////
-
-# Variable globale pour stocker le fichier Excel
-df = None
-
-# Fonction pour importer le fichier Excel
-def import_excel():
-    global df
-    file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
-    if not file_path:
-        return
-    try:
-        df = pd.read_excel(file_path)
-        required_columns = ['Nom', 'Prenom', 'Filière', 'CodeSalle', 'Date_N', 'Code Anonyme']
-        if not all(col in df.columns for col in required_columns):
-            messagebox.showerror("Error", "The Excel file does not contain all required columns.")
-            df = None
-            return
-        messagebox.showinfo("Success", "Excel file successfully imported")
-    except Exception as e:
-        messagebox.showerror("Error", f"An error occurred while importing the file: {e}")
-        df = None
-
-# Fonction pour générer les codes-barres et sauvegarder dans un fichier Excel
-def save_barcodes_to_excel():
-    global df
-    if df is None:
-        messagebox.showerror("Error", "Please import an Excel file first.")
-        return
-    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-    output_dir = os.path.join(desktop_path, "code_bars")
-    os.makedirs(output_dir, exist_ok=True)
-    barcode_data = []
-    for index, row in df.iterrows():
-        code_anonyme = str(row['Code Anonyme'])
-        code = barcode.get_barcode_class('code128')(code_anonyme, writer=ImageWriter())
-        barcode_filename = os.path.join(output_dir, f"barcode_{code_anonyme}.png")
-        code.save(barcode_filename)
-        barcode_data.append({
-            "Nom": row['Nom'], "Prenom": row['Prenom'], "Filière": row['Filière'],
-            "CodeSalle": row['CodeSalle'], "Date_N": row['Date_N'], "Code Anonyme": code_anonyme,
-            "Nom du fichier de code-barres": barcode_filename
-        })
-    barcode_df = pd.DataFrame(barcode_data)
-    barcode_df.to_excel(os.path.join(desktop_path, "code_bars.xlsx"), index=False)
-    messagebox.showinfo("Success", "Barcodes have been generated and saved on your desktop.")
-
-# Fonction pour générer des QR Codes et les sauvegarder
-# Fonction pour générer des QR Codes et les sauvegarder dans un fichier Excel
-def generate_qr_codes():
-    global df
-    if df is None:
-        messagebox.showerror("Error", "Please import an Excel file first.")
-        return
-    
-    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-    qr_dir = os.path.join(desktop_path, "code_qr")
-    os.makedirs(qr_dir, exist_ok=True)
-    
-    qr_data = []  # Liste pour stocker les informations des QR codes
-    
-    for index, row in df.iterrows():
-        code_anonyme = str(row['Code Anonyme'])
-        
-        # Génération du QR code
-        qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
-        qr.add_data(code_anonyme)
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill='black', back_color='white')
-        
-        # Sauvegarde de l'image du QR code
-        qr_filename = os.path.join(qr_dir, f"qr_code_{code_anonyme}.png")
-        qr_img.save(qr_filename)
-        
-        # Ajouter les informations à la liste
-        qr_data.append({
-            "Nom": row['Nom'], "Prenom": row['Prenom'], "Filière": row['Filière'],
-            "CodeSalle": row['CodeSalle'], "Date_N": row['Date_N'], "Code Anonyme": code_anonyme,
-            "Nom du fichier QR Code": qr_filename
-        })
-    
-    # Sauvegarde des informations dans un fichier Excel
-    qr_df = pd.DataFrame(qr_data)
-    qr_df.to_excel(os.path.join(desktop_path, "code_qr.xlsx"), index=False)
-    
-    messagebox.showinfo("Success", "QR codes have been generated and saved on your desktop.")
-
-# Fonction pour scanner un code-barres ou un QR code et afficher les informations
-# Fonction pour scanner un code-barres ou un QR code et afficher les informations
-def scan_code():
-    # Ouvre une fenêtre pour sélectionner une image à scanner
-    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")])
-    if not file_path:
-        return
-    
-    try:
-        # Ouvre l'image avec PIL
-        img = Image.open(file_path)
-        decoded_objects = decode(img)  # Décode le code-barres ou QR code dans l'image
-        if not decoded_objects:
-            messagebox.showerror("Error", "No barcode or QR code detected.")
-            return
-        
-        # Afficher les informations du code scanné
-        for obj in decoded_objects:
-            data = obj.data.decode('utf-8')  # Convertir les données en texte (Code Anonyme)
-            
-            # Rechercher les informations de l'étudiant dans le fichier Excel
-            if df is not None:
-                student_info = df[df['Code Anonyme'] == data]  # Trouver la ligne correspondant au Code Anonyme
-                if not student_info.empty:
-                    student_details = student_info.iloc[0]  # Prendre la première ligne trouvée
-                    student_info_text = (
-                        f"Nom: {student_details['Nom']}\n"
-                        f"Prénom: {student_details['Prenom']}\n"
-                        f"Filière: {student_details['Filière']}\n"
-                        f"Code Salle: {student_details['CodeSalle']}\n"
-                        f"Date de Naissance: {student_details['Date_N']}\n"
-                        f"Code Anonyme: {student_details['Code Anonyme']}"
-                    )
-                    messagebox.showinfo("Informations de l'Étudiant", student_info_text)
-                else:
-                    messagebox.showerror("Error", "No information found for this code.")
-            else:
-                messagebox.showerror("Error", "Please import an Excel file first.")
-                
-    except Exception as e:
-        messagebox.showerror("Error", f"An error occurred during scanning: {e}")
-
-# Style pour ttk
-style = ttk.Style()
-style.configure("TButton", font=("Helvetica", 12), background="#5cb85c", padding=10)
-style.configure("TLabel", font=("Helvetica", 14), background="#f2f2f2", foreground="#333")
-style.configure("TFrame", background="#f2f2f2")
-
-# Création des cadres pour l'interface
-frame_top = Frame(code_page)
-frame_top.pack(pady=30)
-
-frame_import = Frame(code_page)
-frame_import.pack(pady=20)
-
-frame_generate_barcode = Frame(code_page)
-frame_generate_barcode.pack(pady=20)
-
-frame_generate_qr = Frame(code_page)
-frame_generate_qr.pack(pady=20)
-
-frame_scan_code = Frame(code_page)
-frame_scan_code.pack(pady=20)
-
-# Titre de l'application
-Label(frame_top, text="Import your Excel file", font=("Arial", 18, "bold"), bg="#f2f2f2").pack()
-
-# Bouton pour importer le fichier Excel
-ttk.Button(frame_import, text="Import Excel File", command=import_excel,width=20).pack(fill="x", expand=True, pady=5)
-
-# Bouton pour générer les codes-barres
-ttk.Button(frame_generate_barcode, text="Generate Barcodes", command=save_barcodes_to_excel,width=20).pack(fill="x", expand=True, pady=5)
-
-# Bouton pour générer les QR codes
-ttk.Button(frame_generate_qr, text="Generate QR Codes", command=generate_qr_codes,width=20).pack(fill="x", expand=True, pady=5)
-
-# Bouton pour scanner un code
-ttk.Button(frame_scan_code, text="Scan a Code", command=scan_code,width=20).pack(fill="x", expand=True, pady=5)
-
-
-
-# code page ////////////////////////////////////////////////////////////////////////////////////////
 
 # Professors page /////////////////////////////////////////////////////////////////////////////////////
-# 📧 Configuration Gmail
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-EMAIL_SENDER = "batehibellkirnesrin@gmail.com"  # Remplace par ton adresse Gmail
-EMAIL_PASSWORD = "adfu hhbs tcim axfy"  # Remplace par ton mot de passe d'application
+tk.Label(professors_page, text="Import Prof List", font=("Arial", 14), bg="white").place(x=28, y=15)
+prof_imp_btn = tk.Button(professors_page, text="Import", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
+prof_imp_btn.place(x=190, y=15, width=148, height=27)
 
-# 📌 Initialisation de la base de données
-DB_FILE = "professeurs.db"
-CLE_FICHIER = "key.key"
-fichier_importe = None  # Variable pour stocker le fichier Excel
+tk.Label(professors_page, text="OR", font=("Arial", 14, "bold"), bg="white").place(x=355, y=15)
 
-# 🔐 Générer et charger la clé de chiffrement
-def generer_cle():
-    if not os.path.exists(CLE_FICHIER):
-        cle = Fernet.generate_key()
-        with open(CLE_FICHIER, "wb") as fichier_cle:
-            fichier_cle.write(cle)
+delete_btn = tk.Button(professors_page, text="Delete", font=("Arial", 12), bg="#D10801", fg="white", bd=0)
+delete_btn.place(relx=0.7, y=305, width=148, height=27, anchor="e")
 
-def charger_cle():
-    with open(CLE_FICHIER, "rb") as fichier_cle:
-        return fichier_cle.read()
+send_emails = tk.Button(professors_page, text="Send Emails", font=("Arial", 12), bg="#00B400", fg="white", bd=0)
+send_emails.place(relx=0.9, y=305, width=148, height=27, anchor="e")
 
-generer_cle()
-fernet = Fernet(charger_cle())
+def add_prof_window():
+    add_prof_window = tk.Toplevel()
+    add_prof_window.title("Add Professors")
+    add_prof_window.geometry("800x340")
+    add_prof_window.configure(bg="white")
+    add_prof_window.resizable(False, False)
 
-# 📌 Connexion à SQLite
-conn = sqlite3.connect(DB_FILE)
-cursor = conn.cursor()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS professeurs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nom TEXT,
-    prenom TEXT,
-    email TEXT,
-    mot_de_passe TEXT
-)
-""")
-conn.commit()
+    # Labels
+    tk.Label(add_prof_window, text="Name", bg="white", font=("Arial", 12)).place(x=50, y=45)
+    tk.Label(add_prof_window, text="Email", bg="white", font=("Arial", 12)).place(x=428, y=45)
+    tk.Label(add_prof_window, text="Surname", bg="white", font=("Arial", 12)).place(x=50, y=120)
+    tk.Label(add_prof_window, text="Module", bg="white", font=("Arial", 12)).place(x=428, y=120)
 
-# 🔑 Générer un mot de passe sécurisé
-def generer_mot_de_passe():
-    caracteres = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(caracteres) for _ in range(8))
+    # Entry Fields
+    name_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
+    name_entry.place(x=135, y=36, width=235, height=36)
 
-# 🔒 Chiffrer et déchiffrer les mots de passe
-def chiffrer_mot_de_passe(mot_de_passe):
-    return fernet.encrypt(mot_de_passe.encode()).decode()
+    email_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
+    email_entry.place(x=520, y=36, width=235, height=36)
 
-def dechiffrer_mot_de_passe(mot_de_passe_chiffre):
-    return fernet.decrypt(mot_de_passe_chiffre.encode()).decode()
+    surname_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
+    surname_entry.place(x=135, y=111, width=235, height=36)
 
-# 📩 Fonction d'envoi d'email
-def envoyer_email(destinataire, nom, prenom, mot_de_passe):
-    try:
-        sujet = "Votre mot de passe pour la plateforme"
-        message = f"""
-        Bonjour {prenom} {nom},
+    module_combobox = ttk.Combobox(add_prof_window, font=("Arial", 12), state="readonly")
+    module_combobox['values'] = ("Mathematics", "Physics", "Computer Science", "Biology")
+    module_combobox.place(x=520, y=111, width=235, height=36)
 
-        Voici vos informations de connexion :
-        Email : {destinataire}
-        Mot de passe : {mot_de_passe}
+    # Button Functions
+    def cancel():
+        add_prof_window.destroy()
 
-        Merci de garder ces informations en sécurité.
+    def done():
+        name = name_entry.get().strip()
+        surname = surname_entry.get().strip()
+        email = email_entry.get().strip()
+        module = module_combobox.get().strip()
 
-        Cordialement,
-        L'administration.
-        """
-
-        msg = MIMEMultipart()
-        msg["From"] = EMAIL_SENDER
-        msg["To"] = destinataire
-        msg["Subject"] = sujet
-        msg.attach(MIMEText(message, "plain"))
-
-        context = ssl.create_default_context()
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls(context=context)
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        server.sendmail(EMAIL_SENDER, destinataire, msg.as_string())
-        server.quit()
-
-        print(f"✅ Email envoyé à {destinataire}")
-    except Exception as e:
-        print(f"❌ Erreur lors de l'envoi à {destinataire} : {e}")
-
-
-# 📂 Importer un fichier Excel
-def importer_fichier():
-    global fichier_importe, df
-    fichier_importe = filedialog.askopenfilename(filetypes=[("Fichiers Excel", "*.xlsx;*.xls")])
-    if not fichier_importe:
-        return
-    try:
-        df = pd.read_excel(fichier_importe)
-        if 'Nom' in df.columns and 'Prenom' in df.columns and 'Email' in df.columns:
-            cursor.execute("DELETE FROM professeurs")
-            conn.commit()
-
-            for row in table.get_children():
-                table.delete(row)
-
-            messagebox.showinfo("Succès", "Fichier importé avec succès et ancienne liste supprimée.")
-            lbl_fichier.config(text=f"Fichier chargé : {os.path.basename(fichier_importe)}")
-            
-            # Activation des boutons après l'importation réussie
-            btn_generer.config(state=tk.NORMAL)
-            btn_envoyer.config(state=tk.NORMAL)
-            btn_exporter.config(state=tk.NORMAL)  # Activation du bouton Export
-            
+        if name and surname and email and module:
+            messagebox.showinfo("Success", "Professor added successfully!")
+            add_prof_window.destroy()
         else:
-            messagebox.showerror("Erreur", "Le fichier doit contenir 'Nom', 'Prenom' et 'Email'.")
-    except Exception as e:
-        messagebox.showerror("Erreur", f"Impossible de lire le fichier : {e}")
+            messagebox.showerror("Error", "Please fill in all fields.")
 
-# 🔑 Générer et stocker les mots de passe
-def generer_mots_de_passe():
-    global df
-    if df is not None:
-        for _, row in df.iterrows():
-            mot_de_passe = generer_mot_de_passe()
-            mot_de_passe_chiffre = chiffrer_mot_de_passe(mot_de_passe)
+    # Buttons
+    cancel_button = tk.Button(add_prof_window, text="Cancel", bg="#D10801", fg="white", font=("Arial", 12), bd=0, command=cancel)
+    cancel_button.place(x=472, y=299, width=148, height=27)
 
-            cursor.execute("INSERT INTO professeurs (nom, prenom, email, mot_de_passe) VALUES (?, ?, ?, ?)",
-                           (row['Nom'], row['Prenom'], row['Email'], mot_de_passe_chiffre))
-        conn.commit()
+    done_button = tk.Button(add_prof_window, text="Done", bg="#00B400", fg="white", font=("Arial", 12), bd=0, command=done)
+    done_button.place(x=634, y=299, width=148, height=27)
+    
+add_pr_btn = tk.Button(professors_page, text="Add Prof", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0, command=add_prof_window)
+add_pr_btn.place(x=406, y=15, width=148, height=27)
 
-        messagebox.showinfo("Succès", "Mots de passe générés et enregistrés.")
-        afficher_donnees()
-
-# 📩 Envoyer les emails à tous les professeurs
-def envoyer_tous_emails():
-    cursor.execute("SELECT nom, prenom, email, mot_de_passe FROM professeurs")
-    professeurs = cursor.fetchall()
-
-    if not professeurs:
-        messagebox.showerror("Erreur", "Aucun professeur enregistré dans la base de données.")
-        return
-
-    for nom, prenom, email, mot_de_passe_chiffre in professeurs:
-        mot_de_passe_dechiffre = dechiffrer_mot_de_passe(mot_de_passe_chiffre)
-        envoyer_email(email, nom, prenom, mot_de_passe_dechiffre)
-
-    messagebox.showinfo("Succès", "Emails envoyés à tous les professeurs.")
-
-# 📊 Afficher les données
-def afficher_donnees():
-    for row in table.get_children():
-        table.delete(row)
-
-    cursor.execute("SELECT id, nom, prenom, email, mot_de_passe FROM professeurs")
-    for row in cursor.fetchall():
-        id_prof, nom, prenom, email, mot_de_passe_chiffre = row
-        mot_de_passe_dechiffre = dechiffrer_mot_de_passe(mot_de_passe_chiffre)
-        table.insert("", "end", values=(id_prof, nom, prenom, email, mot_de_passe_dechiffre))
-
-# 📌 Fonction pour vider le tableau
-def vider_tableau():
-    confirmation = messagebox.askyesno("Confirmation", "Voulez-vous vraiment supprimer toutes les données ?")
-    if confirmation:
-        cursor.execute("DELETE FROM professeurs")
-        conn.commit()
-
-        for row in table.get_children():
-            table.delete(row)
-
-        messagebox.showinfo("Succès", "Toutes les données ont été supprimées.")
-        # 📂 Exporter vers le fichier Excel importé
-def exporter_fichier():
-    global fichier_importe, df
-    if fichier_importe and df is not None:
-        try:
-            # Récupérer les mots de passe depuis la base de données
-            cursor.execute("SELECT nom, prenom, email, mot_de_passe FROM professeurs")
-            professeurs = cursor.fetchall()
-            
-            # Vérifier si la colonne "Mot de passe" existe déjà
-            if "Mot de passe" not in df.columns:
-                df["Mot de passe"] = ""
-
-            # Mettre à jour les mots de passe dans le DataFrame
-            for i, (_, _, email, mot_de_passe_chiffre) in enumerate(professeurs):
-                mot_de_passe_dechiffre = dechiffrer_mot_de_passe(mot_de_passe_chiffre)
-                df.at[i, "Mot de passe"] = mot_de_passe_dechiffre
-
-            # Sauvegarder dans le fichier Excel
-            df.to_excel(fichier_importe, index=False)
-            messagebox.showinfo("Succès", "Exportation réussie dans le même fichier Excel !")
-        except Exception as e:
-            messagebox.showerror("Erreur", f"Impossible d'exporter : {e}")
-
-            # ➕ Ajouter un professeur manuellement
-
-def ajouter_professeur():
-    def sauvegarder_professeur():
-        nom = entry_nom.get().strip()
-        prenom = entry_prenom.get().strip()
-        email = entry_email.get().strip()
-        
-        if nom and prenom and email:
-            mot_de_passe = generer_mot_de_passe()
-            mot_de_passe_chiffre = chiffrer_mot_de_passe(mot_de_passe)
-            
-            cursor.execute("INSERT INTO professeurs (nom, prenom, email, mot_de_passe) VALUES (?, ?, ?, ?)",
-                           (nom, prenom, email, mot_de_passe_chiffre))
-            conn.commit()
-            afficher_donnees()
-            
-            messagebox.showinfo("Succès", f"Professeur {prenom} {nom} ajouté avec succès !")
-            fenetre_ajout.destroy()
-        else:
-            messagebox.showerror("Erreur", "Tous les champs sont obligatoires.")
-
-    # Création de la fenêtre d'ajout plus grande
-    fenetre_ajout = tk.Toplevel(professors_page)
-    fenetre_ajout.title("Ajouter un Professeur")
-    fenetre_ajout.geometry("730x320")
-    fenetre_ajout.resizable(False, False)
-
-    frame = tk.Frame(fenetre_ajout, padx=30, pady=30)
-    frame.pack(expand=True)
-
-    # Titre
-    tk.Label(frame, text="Ajouter un Nouveau Professeur", font=("Arial", 16, "bold"), fg="black").grid(row=0, column=0, columnspan=2, pady=15)
-
-    # Champs de saisie avec labels bien alignés
-    tk.Label(frame,fg="red" ,text="Nom :", font=("Arial", 12)).grid(row=1, column=0, sticky="w", pady=10)
-    entry_nom = tk.Entry(frame, font=("Arial", 14), width=27)
-    entry_nom.grid(row=1, column=1, pady=10)
-
-    tk.Label(frame, fg="red",text="Prénom :", font=("Arial", 12)).grid(row=2, column=0, sticky="w", pady=10)
-    entry_prenom = tk.Entry(frame, font=("Arial", 14), width=27)
-    entry_prenom.grid(row=2, column=1, pady=10)
-
-    tk.Label(frame,fg="red" ,text="Email :", font=("Arial", 12)).grid(row=3, column=0, sticky="w", pady=10)
-    entry_email = tk.Entry(frame, font=("Arial", 14), width=27)
-    entry_email.grid(row=3, column=1, pady=10)
-
-    # Boutons d'action bien positionnés
-    btn_sauvegarder = tk.Button(frame, text="Sauvegarder", font=("Arial", 12, "bold"), bg="#5D8BCD", fg="white", command=sauvegarder_professeur, width=15, height=1)
-    btn_sauvegarder.grid(row=4, column=0, columnspan=2, pady=20, ipadx=45, ipady=5)
-
-
-  # 🖥 Interface Tkinter
-
-
-espacement_x = 150  # Distance horizontale entre les boutons
-position_x = 10  
-button_width = 20  # Largeur des boutons (en nombre de caractères)
-button_height = 1
-
-btn_importer = tk.Button(professors_page, text="Importer un fichier Excel", command=importer_fichier, width=button_width, height=button_height , bg="#5D8BCD", fg="white")
-btn_importer.place(x=position_x, y=20)
-
-btn_generer = tk.Button(professors_page, text="Générer les mots de passe", command=generer_mots_de_passe, state=tk.DISABLED, width=button_width, height=button_height)
-btn_generer.place(x=position_x +1.01* espacement_x, y=20)
-
-btn_envoyer = tk.Button(professors_page, text="Envoyer les mots de passe par email", command=envoyer_tous_emails, state=tk.DISABLED, width=27, height=button_height)
-btn_envoyer.place(x=position_x + 2.035* espacement_x, y=20)
-
-btn_exporter = tk.Button(professors_page, text="Exporter vers Excel", command=exporter_fichier, state=tk.DISABLED, width=18, height=button_height)
-btn_exporter.place(x=position_x + 3.375* espacement_x, y=20)
-
-btn_ajouter = tk.Button(professors_page, text="Ajouter un professeur", command=ajouter_professeur, width=18, height=button_height, bg="#5D8BCD", fg="white")
-btn_ajouter.place(x=position_x + 4.3 * espacement_x, y=20)
-
-lbl_fichier = tk.Label(professors_page, text="Aucun fichier chargé", fg="blue", width=18, height=button_height)
-lbl_fichier.place(x=10, y=80)
-
-frame_table = tk.Frame(professors_page)
-frame_table.pack(pady=110)
-
-table = ttk.Treeview(frame_table, columns=("ID", "Nom", "Prenom", "Email", "Mot de passe"), show="headings")
-table.heading("ID", text="ID")
-table.heading("Nom", text="Nom")
-table.heading("Prenom", text="Prénom")
-table.heading("Email", text="Email")
-table.heading("Mot de passe", text="Mot de passe")
-table.pack()
-
-btn_vider = tk.Button(professors_page, text="Vider le tableau",font=("Arial", 10, "bold"), command=vider_tableau, fg="white", bg="red", width=18, height=button_height )
-btn_vider.pack(pady=10)
-btn_vider.place(x=327,y=300)
-
+columns_prof = ("name", "Email", "Password")
+table_prof = ttk.Treeview(professors_page, columns=columns_prof, show="headings", height=8)
+table_prof.place(x=25, y=55, relwidth=0.95, height=228)  # Using relwidth for responsiveness
 # Professors page /////////////////////////////////////////////////////////////////////////////////////
 
 # Attendee page /////////////////////////////////////////////////////////////////////////////////////
 tk.Label(attendee_page, text="Export attendee List", font=("Arial", 12, "bold"), bg="white").place(x=24, y=37)
 
 tk.Label(attendee_page, text="Salle", font=("Arial", 12), bg="white").place(x=32, y=88)
-salle_combobox = ttk.Combobox(attendee_page, state="readonly")
-salle_combobox.place(x=88, y=80, width=175, height=36)
+at_salle_combobox = ttk.Combobox(attendee_page, state="readonly")
+at_salle_combobox.place(x=88, y=80, width=175, height=36)
+at_salle_combobox['values'] = get_salle_names()
 
-print_btn = tk.Button(attendee_page, text="Print", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
+def generate_excel():
+    salle = at_salle_combobox.get().strip()
+
+    if not salle:
+        messagebox.showerror("Error", "Please select a salle.")
+        return
+
+    # Fetch candidates' data
+    candidates = get_candidates_by_salle(salle)
+
+    if not candidates:
+        messagebox.showinfo("Info", "No candidates found for the selected salle.")
+        return
+
+    # Create a DataFrame
+    df = pd.DataFrame(candidates, columns=["name", "surname", "salle"])
+    df["audience"] = ""  # Add empty column
+
+    # Ask user where to save the file
+    file_path = asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+
+    if not file_path:
+        return  # User canceled save dialog
+
+    # Save to Excel
+    try:
+        df.to_excel(file_path, index=False, engine="openpyxl")
+        messagebox.showinfo("Success", f"Excel file saved successfully:\n{file_path}")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to save Excel file:\n{e}")
+
+print_btn = tk.Button(attendee_page, text="Print", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0,command=generate_excel)
 print_btn.place(x=294, y=84, width=148, height=27)
 
-qr_code_btn = tk.Button(attendee_page, text="QR Code", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
+
+def generate_qr_codes():
+    candidates = get_all_candidates()
+
+    if not candidates:
+        messagebox.showinfo("Info", "No candidates found in the database.")
+        return
+
+    # Let the user choose the folder to save QR codes
+    qr_folder = filedialog.askdirectory(title="Select Folder to Save QR Codes")
+
+    # If the user cancels, return
+    if not qr_folder:
+        return
+
+    qr_count = 0  # Counter for QR codes generated
+
+    for name, surname, anonymous_id in candidates:
+        if not anonymous_id:
+            continue  # Skip if anonymous_id is empty
+
+        try:
+            # Generate QR code
+            qr = qrcode.make(anonymous_id)
+
+            # Define file path (e.g., selected_folder/John_Doe.png)
+            filename = f"{name}_{surname}.png".replace(" ", "_")  # Remove spaces
+            file_path = os.path.join(qr_folder, filename)
+
+            # Save the QR code image
+            qr.save(file_path)
+            qr_count += 1  # Increment counter
+
+        except Exception as e:
+            messagebox.showerror("QR Code Error", f"Failed to generate QR for {name} {surname}: {e}")
+
+    # Show success message if at least one QR was created
+    if qr_count > 0:
+        messagebox.showinfo("Success", f"{qr_count} QR codes saved successfully in '{qr_folder}'.")
+    else:
+        messagebox.showwarning("Warning", "No QR codes were generated.")
+
+# Create "QR Code" Button
+qr_code_btn = tk.Button(attendee_page, text="QR Code", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0, command=generate_qr_codes)
 qr_code_btn.place(x=452, y=84, width=148, height=27)
 
 separator = tk.Frame(attendee_page, bg="#D9D9D9", height=2)
 separator.place(x=216, y=160, relwidth=0.45)  # Using relwidth for responsiveness
 
 tk.Label(attendee_page, text="Import absences List", font=("Arial", 14), bg="white").place(x=24, y=209)
-import_btn = tk.Button(attendee_page, text="Import", font=("Arial", 12), bg="#D9D9D9", bd=0)
+import_btn = tk.Button(attendee_page, text="Import", font=("Arial", 12), bg="#D9D9D9", bd=0,command=import_absences)
 import_btn.place(x=294, y=209, width=162, height=26)
 
 # Attendee page /////////////////////////////////////////////////////////////////////////////////////
@@ -818,8 +586,9 @@ import_btn.place(x=294, y=209, width=162, height=26)
 # Results page /////////////////////////////////////////////////////////////////////////////////////
 tk.Label(results_page, text="Results List ", font=("Arial", 14,"bold"), bg="white").place(x=32, y=15)
 tk.Label(results_page, text="Salle", font=("Arial", 12), bg="white").place(x=32, y=59)
-salle_combobox = ttk.Combobox(results_page, state="readonly")
-salle_combobox.place(x=139, y=51, width=237, height=36)
+r_salle_combobox = ttk.Combobox(results_page, state="readonly")
+r_salle_combobox.place(x=139, y=51, width=237, height=36)
+r_salle_combobox['values'] = get_salle_names()
 
 tk.Label(results_page, text="Language", font=("Arial", 12), bg="white").place(x=32, y=110)
 language_combobox = ttk.Combobox(results_page, state="readonly")
@@ -833,13 +602,14 @@ rs_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 
 # Results page /////////////////////////////////////////////////////////////////////////////////////
 
+update_salle_comboboxes(st_salle_combobox, at_salle_combobox, r_salle_combobox, window)
+
 # Store pages in the dictionary
 pages["Option"] = option_page
 pages["Students list"] = students_page
 pages["Professors list"] = professors_page
 pages["Attendee list"] = attendee_page
 pages["Results"] = results_page
-pages["QR/Bar code"] = code_page
 
 # Show the default page
 show_page("Option")
