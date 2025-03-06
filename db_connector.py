@@ -9,11 +9,11 @@ import string
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host="192.168.1.42",
+            host="sql7.freesqldatabase.com",
             port="3306",
-            user="pfcanonymat",
-            password="lMJWH4xmxpG",
-            database="anonymat"
+            user="sql7766170",
+            password="3b79MchLzi",
+            database="sql7766170"
         )
         if conn.is_connected():
             print("✅ Successfully connected to the database!")
