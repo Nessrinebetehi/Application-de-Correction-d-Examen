@@ -9,10 +9,10 @@ import string
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host="127.0.0.1",
+            host="192.168.1.42",
             port="3306",
-            user="root",
-            password="root",
+            user="pfcanonymat",
+            password="lMJWH4xmxpG",
             database="anonymat"
         )
         if conn.is_connected():
