@@ -6,6 +6,7 @@ import qrcode
 from PIL import Image, ImageTk
 from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details,calculate_final_grade,save_grades
 
+
 # Create the main window
 window = tk.Tk()
 window.title("Professor Window")
