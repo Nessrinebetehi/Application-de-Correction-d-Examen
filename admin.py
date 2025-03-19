@@ -9,11 +9,14 @@ from tkinter.filedialog import asksaveasfilename
 import pandas as pd
 import os
 import qrcode
+from datetime import date
 from db_connector import op_save_data,insert_exam,get_exams,delete_exam
 from db_connector import add_salle,get_all_salles,delete_salle,generate_code_salle
 from db_connector import get_db_connection
 from db_connector import get_salle_names,update_salle_comboboxes,get_exam_options,save_student,import_students_from_excel 
 from db_connector import get_candidates_by_salle,get_all_candidates,import_absences
+from db_connector import fetch_modules, add_professor,get_profs_from_db,delete_professor,send_emails
+from db_connector import institute_data,calculate_and_export_results
 import mysql.connector
 
 
@@ -24,58 +27,58 @@ window.title("Admin window")
 # Set window size and configuration
 window_width = 800
 window_height = 500
-window.resizable(True, True)  # Changed to True, True to make window resizable
+window.resizable(True, True) 
 window.configure(bg="#FFFFFF")
 window.geometry(f"{window_width}x{window_height}")
 
-# Center the window on the screen
+
 screen_width = window.winfo_screenwidth()
 screen_height = window.winfo_screenheight()
 x_position = int((screen_width - window_width) / 2)
 y_position = int((screen_height - window_height) / 2)
 window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
-# Add a header label
+
 header_label = tk.Label(window, text="Management of Post-Graduation\nCompetitions", 
                         font=("Arial", 24, "bold"), fg="#5A7EC7", bg="#FFFFFF", justify="left")
 header_label.pack(pady=15, anchor="w", padx=20)
 
-# Create the menu frame
+
 menu_frame = tk.Frame(window, bg="#5A7EC7")
 menu_frame.pack(fill=tk.X, side=tk.TOP)
 
-# Define button names
+
 menu_buttons = ["Option", "Students list", "Professors list", "Attendee list", "Results"]
 button_width = 15
 
-# Create a dictionary to store pages
+
 pages = {}
 
-# Define function to switch between pages
+
 def show_page(page_name):
     for page in pages.values():
         page.pack_forget()
     pages[page_name].pack(fill=tk.BOTH, expand=True)
 
-# Function for hover effect
+
 def on_enter(button):
     button.config(bg="#4A66B0", fg="#FFFFFF")  # Darken background on hover
 
 def on_leave(button):
     button.config(bg="#5A7EC7", fg="#FFFFFF")  # Revert back when mouse leaves
 
-# Create buttons with hover effects and link them to pages
+
 for idx, text in enumerate(menu_buttons):
     btn = tk.Button(menu_frame, text=text, font=("Arial", 10, "bold"), fg="#FFFFFF", bg="#5A7EC7", 
                     relief=tk.FLAT, width=button_width, command=lambda page=text: show_page(page))
     
-    # Add hover effect with event bindings
+
     btn.bind("<Enter>", lambda event, b=btn: on_enter(b))
     btn.bind("<Leave>", lambda event, b=btn: on_leave(b))
 
     btn.pack(side=tk.LEFT, padx=5, pady=5)
 
-# Create frames (pages) for different sections
+
 option_page = tk.Frame(window, bg="white")
 students_page = tk.Frame(window, bg="white")
 professors_page = tk.Frame(window, bg="white")
@@ -83,6 +86,7 @@ attendee_page = tk.Frame(window, bg="white")
 results_page = tk.Frame(window, bg="white")
 
 # Option page /////////////////////////////////////////////////////////////////////////////////////
+
 tk.Label(option_page, text="Institute", font=("Arial", 14), bg="white").place(x=24, y=15)
 institute_entry = tk.Entry(option_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
 institute_entry.place(x=190, y=14, width=330, height=36)
@@ -187,7 +191,7 @@ def add_exams_window():
     done_button = tk.Button(add_exam_window, text="Done", bg="#00B400", fg="white", command=add_exam_window.destroy, width=10, bd=0)
     done_button.place(x=570, y=280, width=147, height=27)
 
-    load_exams()  # تحميل الامتحانات عند فتح النافذة
+    load_exams() 
 
 
 tk.Label(option_page, text="Add exams", font=("Arial", 14), bg="white").place(x=24, y=227)
@@ -227,7 +231,7 @@ def add_salles_window():
         for row in table.get_children():
             table.delete(row)
 
-        salles = get_all_salles()  # جلب جميع القاعات من قاعدة البيانات
+        salles = get_all_salles()
         for salle in salles:
             table.insert("", "end", values=salle)
 
@@ -271,7 +275,7 @@ def add_salles_window():
     done_button = tk.Button(add_salle_window, text="Done", bg="#00B400", fg="white", command=add_salle_window.destroy, width=10, bd=0)
     done_button.place(x=570, y=280, width=147, height=27)
 
-    load_salles()  # تحميل القاعات عند فتح النافذة
+    load_salles()  
 
 tk.Label(option_page, text="Add salles", font=("Arial", 14), bg="white").place(x=24, y=275)
 add_salles_btn = tk.Button(option_page, text="Add", font=("Arial", 16), bg="#5D8BCD", fg="white", bd=0, command=add_salles_window)
@@ -319,7 +323,7 @@ def import_excel():
     file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
     if file_path:
         result = import_students_from_excel(file_path)
-        messagebox.showinfo("نتيجة الاستيراد", result)
+        messagebox.showinfo("Import Result", result)
 
 st_import_btn = tk.Button(students_page, text="Import List", font=("Arial", 14), bg="#D9D9D9", fg="black", bd=0, command=import_excel)
 st_import_btn.place(x=163, y=27, width=148, height=27)
@@ -332,19 +336,19 @@ tk.Label(students_page, text="Option", font=("Arial", 14), bg="white").place(x=2
 
 def update_combobox():
     """Update combobox values dynamically"""
-    new_options = get_exam_options()  # استرجاع القيم الجديدة من قاعدة البيانات
-    st_option_combo["values"] = new_options  # تحديث القيم في Combobox
+    new_options = get_exam_options() 
+    st_option_combo["values"] = new_options  
 
-    # إذا كانت القائمة تحتوي على عناصر، اضبط العنصر الافتراضي على الأول
+
     if new_options:
         st_option_combo.current(0)
 
-    students_page.after(5000, update_combobox)  # جدولة التحديث بعد 5 ثوانٍ
+    students_page.after(5000, update_combobox) 
 
 options = get_exam_options()
 st_option_combo = ttk.Combobox(students_page, values=options, font=("Arial", 14), state="readonly")
 st_option_combo.place(x=163, y=80, width=237, height=36)
-st_option_combo.current(0)  # تحديد الخيار الافتراضي
+st_option_combo.current(0)  
 
 update_combobox()
 
@@ -361,24 +365,19 @@ dob_entry = DateEntry(students_page, font=("Arial", 14), bg="white", fg="black",
                       date_pattern="yyyy-mm-dd", width=18)
 dob_entry.place(x=163, y=220, width=237, height=36)
 
-tk.Label(students_page, text="Sex", font=("Arial", 14), bg="white").place(x=414, y=82)
-sex_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
-sex_combobox['values'] = ("Male", "Female")
-sex_combobox.place(x=480, y=80, width=175, height=36)
-
 #//////////////////////////////////////////////////////
 def update_salle_combobox():
     """Fetches updated salle names from the database and updates the combobox."""
     salles = get_salle_names()
-    st_salle_combobox['values'] = salles  # Update the list
+    st_salle_combobox['values'] = salles
     if salles:
         st_salle_combobox.current(0)  # Set default selection
-    students_page.after(5000, update_salle_combobox)  # Schedule next update
+    students_page.after(5000, update_salle_combobox)
 
 
-tk.Label(students_page, text="Salle", font=("Arial", 14), bg="white").place(x=414, y=127)
+tk.Label(students_page, text="Salle", font=("Arial", 14), bg="white").place(x=414, y=82)
 st_salle_combobox = ttk.Combobox(students_page, font=("Arial", 14), state="readonly")
-st_salle_combobox.place(x=480, y=125, width=175, height=36)
+st_salle_combobox.place(x=480, y=80, width=175, height=36)
 st_salle_combobox['values'] = get_salle_names()
 
 update_salle_combobox()
@@ -387,28 +386,27 @@ def save_student_data():
     name = name_entry.get().strip()
     surname = surname_entry.get().strip()
     dob = dob_entry.get_date().strftime("%Y-%m-%d") if dob_entry.get_date() else ""
-    sex = sex_combobox.get().strip()
     salle = st_salle_combobox.get().strip()
     exam_option = st_option_combo.get().strip()
 
-    # Check for empty fields
-    if not name or not surname or not dob or not sex or not salle or not exam_option:
+    if not name or not surname or not dob or not salle or not exam_option:
         messagebox.showerror("Error", "Please fill in all required fields.")
         return
 
-    result = save_student(name, surname, dob, sex, salle, exam_option)
+    result = save_student(name, surname, dob, salle, exam_option)
 
-    if "✅" in result:
-        messagebox.showinfo("Success", result)
-        # Reset fields after successful save
+    if "Student data saved successfully!" in result:
+        messagebox.showinfo("Success", result.replace("✅ ", "")) 
+
         name_entry.delete(0, tk.END)
         surname_entry.delete(0, tk.END)
-        dob_entry.set_date("")  # Assuming dob_entry supports setting an empty date
-        sex_combobox.current(0)
+        dob_entry.set_date(None)
         st_salle_combobox.current(0)
         st_option_combo.current(0)
     else:
         messagebox.showerror("Error", result)
+
+
 
 # "Done" button linked to the save function
 st_done_btn = tk.Button(students_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=save_student_data)
@@ -416,17 +414,75 @@ st_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 # Students page /////////////////////////////////////////////////////////////////////////////////////
 
 # Professors page /////////////////////////////////////////////////////////////////////////////////////
+def import_professors():
+    file_path = filedialog.askopenfilename(
+        title="Select Excel File",
+        filetypes=[("Excel Files", "*.xlsx *.xls")]
+    )
+
+    if not file_path:
+        return
+
+    try:
+        df = pd.read_excel(file_path)
+
+        required_columns = {"name", "surname", "email","module","correction"}
+        if not required_columns.issubset(df.columns):
+            messagebox.showerror("Error", "Invalid file format. Columns should be: name, surname, email, correction")
+            return
+
+        added_count = 0
+        for _, row in df.iterrows():
+            name = row["name"]
+            surname = row["surname"]
+            email = row["email"]
+            module= row["module"]
+            correction = row["correction"]
+
+            result = add_professor(name, surname, email, module,correction)
+            if "successfully" in result:
+                added_count += 1
+
+        messagebox.showinfo("Success", f"Successfully added {added_count} professors!")
+    
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to import: {e}")
+
+
 tk.Label(professors_page, text="Import Prof List", font=("Arial", 14), bg="white").place(x=28, y=15)
-prof_imp_btn = tk.Button(professors_page, text="Import", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0)
-prof_imp_btn.place(x=190, y=15, width=148, height=27)
+prof_imp_btn = tk.Button(professors_page, text="Import", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0,
+    command=import_professors).place(x=190, y=15, width=148, height=27)
 
 tk.Label(professors_page, text="OR", font=("Arial", 14, "bold"), bg="white").place(x=355, y=15)
 
-delete_btn = tk.Button(professors_page, text="Delete", font=("Arial", 12), bg="#D10801", fg="white", bd=0)
+def delete_selected_prof():
+    selected_items = table_prof.selection()
+
+    if not selected_items:
+        messagebox.showerror("Error", "No professor selected!")
+        return
+
+    confirm = messagebox.askyesno("Confirmation", "Are you sure you want to delete the selected professor(s)?")
+    if not confirm:
+        return
+
+    deleted_count = 0
+    for item in selected_items:
+        email = table_prof.item(item, "values")[1]  
+
+        result = delete_professor(email)
+        if "successfully" in result:
+            deleted_count += 1
+            table_prof.delete(item)  
+
+
+
+delete_btn = tk.Button(professors_page, text="Delete", font=("Arial", 12), bg="#D10801", fg="white", bd=0, command=delete_selected_prof)
 delete_btn.place(relx=0.7, y=305, width=148, height=27, anchor="e")
 
-send_emails = tk.Button(professors_page, text="Send Emails", font=("Arial", 12), bg="#00B400", fg="white", bd=0)
-send_emails.place(relx=0.9, y=305, width=148, height=27, anchor="e")
+
+send_emails_btn = tk.Button(professors_page, text="Send Emails", font=("Arial", 12), bg="#00B400", fg="white", bd=0, command=send_emails )
+send_emails_btn.place(relx=0.9, y=305, width=148, height=27, anchor="e")
 
 def add_prof_window():
     add_prof_window = tk.Toplevel()
@@ -440,7 +496,8 @@ def add_prof_window():
     tk.Label(add_prof_window, text="Email", bg="white", font=("Arial", 12)).place(x=428, y=45)
     tk.Label(add_prof_window, text="Surname", bg="white", font=("Arial", 12)).place(x=50, y=120)
     tk.Label(add_prof_window, text="Module", bg="white", font=("Arial", 12)).place(x=428, y=120)
-
+    tk.Label(add_prof_window, text="Correction", bg="white", font=("Arial", 12)).place(x=50, y=195)
+    
     # Entry Fields
     name_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
     name_entry.place(x=135, y=36, width=235, height=36)
@@ -450,10 +507,15 @@ def add_prof_window():
 
     surname_entry = tk.Entry(add_prof_window, font=("Arial", 12), bd=2, relief="groove")
     surname_entry.place(x=135, y=111, width=235, height=36)
+    
+    corr_combobox = ttk.Combobox(add_prof_window, font=("Arial", 12), state="readonly")
+    corr_combobox['values'] = ("1","2","3")
+    corr_combobox.place(x=135, y=186, width=235, height=36)
+     
 
     module_combobox = ttk.Combobox(add_prof_window, font=("Arial", 12), state="readonly")
-    module_combobox['values'] = ("Mathematics", "Physics", "Computer Science", "Biology")
     module_combobox.place(x=520, y=111, width=235, height=36)
+    module_combobox['values'] = fetch_modules()
 
     # Button Functions
     def cancel():
@@ -463,13 +525,21 @@ def add_prof_window():
         name = name_entry.get().strip()
         surname = surname_entry.get().strip()
         email = email_entry.get().strip()
-        module = module_combobox.get().strip()
+        correction = corr_combobox.get().strip()
+        module = module_combobox.get().strip()  # ✅ الحصول على قيمة module
 
-        if name and surname and email and module:
-            messagebox.showinfo("Success", "Professor added successfully!")
+        if not (name and surname and email and correction and module):  # ✅ التحقق من إدخال جميع القيم
+            messagebox.showerror("Error", "Please fill in all fields.")
+            return
+        
+        result, password = add_professor(name, surname, email, correction, module)  # ✅ تمرير module
+
+        if "successfully" in result:
+            messagebox.showinfo("Success", f"{result}\nGenerated Password: {password}")
             add_prof_window.destroy()
         else:
-            messagebox.showerror("Error", "Please fill in all fields.")
+            messagebox.showerror("Error", result)
+
 
     # Buttons
     cancel_button = tk.Button(add_prof_window, text="Cancel", bg="#D10801", fg="white", font=("Arial", 12), bd=0, command=cancel)
@@ -477,13 +547,34 @@ def add_prof_window():
 
     done_button = tk.Button(add_prof_window, text="Done", bg="#00B400", fg="white", font=("Arial", 12), bd=0, command=done)
     done_button.place(x=634, y=299, width=148, height=27)
+
     
 add_pr_btn = tk.Button(professors_page, text="Add Prof", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0, command=add_prof_window)
 add_pr_btn.place(x=406, y=15, width=148, height=27)
 
 columns_prof = ("name", "Email", "Password")
 table_prof = ttk.Treeview(professors_page, columns=columns_prof, show="headings", height=8)
-table_prof.place(x=25, y=55, relwidth=0.95, height=228)  # Using relwidth for responsiveness
+
+
+for col in columns_prof:
+    table_prof.heading(col, text=col)
+    table_prof.column(col, anchor="center")
+
+
+table_prof.place(x=25, y=55, relwidth=0.95, height=228)
+
+
+def update_table():
+    rows = get_profs_from_db()
+
+    table_prof.delete(*table_prof.get_children())
+
+    for row in rows:
+        table_prof.insert("", "end", values=row)
+
+    window.after(10000, update_table)
+
+update_table()
 # Professors page /////////////////////////////////////////////////////////////////////////////////////
 
 # Attendee page /////////////////////////////////////////////////////////////////////////////////////
@@ -592,12 +683,25 @@ r_salle_combobox['values'] = get_salle_names()
 
 tk.Label(results_page, text="Language", font=("Arial", 12), bg="white").place(x=32, y=110)
 language_combobox = ttk.Combobox(results_page, state="readonly")
+language_combobox['values'] = ("English", "Arabic")  # Add language options here
 language_combobox.place(x=139, y=102, width=175, height=36)
 
 tk.Label(results_page, text="Name of posts", font=("Arial", 12), bg="white").place(x=32, y=161)
 tk.Label(results_page, text="Number of exams", font=("Arial", 12), bg="white").place(x=32, y=208)
 
-rs_done_btn = tk.Button(results_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0)
+name_post, nbr_exams = institute_data()
+tk.Label(results_page, text=name_post, font=("Arial", 12), bg="white").place(x=170, y=161)
+tk.Label(results_page, text=nbr_exams, font=("Arial", 12), bg="white").place(x=170, y=208)
+
+rs_done_btn = tk.Button(
+    results_page, 
+    text="Result", 
+    font=("Arial", 14), 
+    bg="#00B400", 
+    fg="white", 
+    bd=0,
+    command=lambda: calculate_and_export_results(r_salle_combobox.get(), language_combobox.get())
+)
 rs_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 
 # Results page /////////////////////////////////////////////////////////////////////////////////////

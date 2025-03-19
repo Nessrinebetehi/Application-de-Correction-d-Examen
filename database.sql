@@ -1,7 +1,7 @@
 CREATE DATABASE Anonymat;
 USE Anonymat;
 
--- جدول المسؤولين
+
 CREATE TABLE responsables (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL,      
@@ -11,17 +11,18 @@ CREATE TABLE responsables (
     password VARCHAR(255) NOT NULL 
 );
 
--- جدول الأساتذة
+
 CREATE TABLE professors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) NOT NULL,        
-    surname VARCHAR(50) NOT NULL,     
-    birthday DATE NOT NULL,            
+    surname VARCHAR(50) NOT NULL,             
     email VARCHAR(100) UNIQUE NOT NULL,
+    correction integer NOT NULL,
+    module VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL  
 );
 
--- جدول المعاهد (Institutes)
+
 CREATE TABLE institutes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     institute_name VARCHAR(50) UNIQUE NOT NULL,
@@ -50,15 +51,15 @@ CREATE TABLE candidats (
     FOREIGN KEY (salle_name) REFERENCES salles(name_salle) ON DELETE SET NULL
 );
 
--- جدول الامتحانات
+
 CREATE TABLE exams (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    candidat_id INT NULL,  -- السماح بأن يكون NULL
+    candidat_id INT NULL, 
     module_name VARCHAR(100) NOT NULL,  
     coefficient DECIMAL(4, 2) NOT NULL CHECK (coefficient >= 1),
     grade_1 DECIMAL(5, 2) CHECK (grade_1 BETWEEN 0 AND 20),
     grade_2 DECIMAL(5, 2) CHECK (grade_2 BETWEEN 0 AND 20),
     grade_3 DECIMAL(5, 2) CHECK (grade_3 BETWEEN 0 AND 20),
     finale_g DECIMAL(5, 2) CHECK (finale_g BETWEEN 0 AND 20),
-    FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE SET NULL
+    FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON ON DELETE CASCADE
 );

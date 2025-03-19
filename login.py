@@ -48,8 +48,8 @@ password.place(x=435, y=274)
 password_entry = tk.Entry(window, font=("Arial", 14), show="*", bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
 password_entry.place(x=435, y=302, width=242, height=36)  
 
-# دالة تسجيل الدخول
-def on_login():
+
+def on_login(): 
     email = email_entry.get().strip()
     password = password_entry.get().strip()
 
@@ -60,20 +60,17 @@ def on_login():
     try:
         conn = get_db_connection()
         if conn is None:
-            messagebox.showerror("Error", "Failed to connect to the database.")
             return
         
         cursor = conn.cursor()
 
-        # البحث في جدول responsables
-        query = "SELECT 'responsable' FROM responsables WHERE email = %s AND password = %s"
-        cursor.execute(query, (email, password))
+
+        cursor.execute("SELECT 'responsable' FROM responsables WHERE email = %s AND password = %s", (email, password))
         result = cursor.fetchone()
 
-        # البحث في جدول professors إذا لم يتم العثور على النتيجة في responsables
+
         if not result:
-            query = "SELECT 'professor' FROM professors WHERE email = %s AND password = %s"
-            cursor.execute(query, (email, password))
+            cursor.execute("SELECT 'professor', correction FROM professors WHERE email = %s AND password = %s", (email, password))
             result = cursor.fetchone()
 
         conn.close()
@@ -84,7 +81,8 @@ def on_login():
             if role == "responsable":
                 subprocess.run(["python", "admin.py"], check=True)
             elif role == "professor":
-                subprocess.run(["python", "professor.py"], check=True)
+                correction_number = result[1]
+                subprocess.run(["python", "professor.py", str(correction_number)], check=True)  
             else:
                 messagebox.showerror("Error", "Unauthorized access.")
         else:
