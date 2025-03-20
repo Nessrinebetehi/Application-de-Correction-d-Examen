@@ -5,6 +5,47 @@ import socket
 import qrcode
 from PIL import Image, ImageTk
 from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details,calculate_final_grade,save_grades
+from flask import Flask, request, jsonify
+import threading
+
+app = Flask(__name__)
+
+latest_anonyme_id = None
+cr_anonyme_entry = None
+
+@app.route('/update_anonyme', methods=['POST'])
+def update_anonyme():
+    global latest_anonyme_id
+    try:
+        print("Requête reçue : ", request.data)
+        data = request.get_json(force=True)
+        if not data or 'anonyme_id' not in data:
+            print("Erreur : JSON invalide ou 'anonyme_id' manquant")
+            return jsonify({"error": "JSON invalide ou clé 'anonyme_id' manquante"}), 400
+        
+        anonyme_id = data['anonyme_id']
+        if not anonyme_id:
+            print("Erreur : 'anonyme_id' est vide")
+            return jsonify({"error": "'anonyme_id' ne peut pas être vide"}), 400
+        
+        latest_anonyme_id = anonyme_id
+        print(f"ID reçu avec succès : {anonyme_id}")
+
+        if cr_anonyme_entry:
+            cr_anonyme_entry.delete(0, tk.END)
+            cr_anonyme_entry.insert(0, anonyme_id)
+
+        return jsonify({"status": "success", "anonyme_id": anonyme_id}), 200
+    except Exception as e:
+        print(f"Erreur serveur : {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+def run_flask():
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
+
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.daemon = True
+flask_thread.start()
 
 
 # Create the main window
