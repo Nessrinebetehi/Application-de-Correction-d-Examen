@@ -44,7 +44,7 @@ def get_db_connection():
 def home():
     return render_template('index.html')
 
-# Option Page Routes
+# Option Page Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/save_institute', methods=['POST'])
 def save_institute():
     data = request.get_json()
@@ -56,7 +56,16 @@ def save_institute():
     result = op_save_data(institute_name, exam_option, name_post, nbr_exams)
     return jsonify({'message': result})
 
-# Exams Routes
+@app.route('/api/delete_all_data', methods=['POST'])
+def api_delete_all_data():
+    # Expecting JSON data with a 'confirmation' field
+    data = request.get_json()
+    if not data or 'confirmation' not in data:
+        return jsonify({'error': 'Confirmation input is required'}), 400
+    
+    result = delete_all_data(data['confirmation'])
+    return jsonify(result)
+# Exams Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/add_exam', methods=['POST'])
 def add_exam():
     data = request.get_json()
@@ -77,7 +86,7 @@ def api_delete_exam(exam_id):
     result = delete_exam(exam_id)
     return jsonify({'success': isinstance(result, bool) and result, 'message': result if isinstance(result, str) else "Exam deleted"})
 
-# Salles Routes
+# Salles Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/add_salle', methods=['POST'])
 def api_add_salle():
     data = request.get_json()
@@ -101,7 +110,7 @@ def api_delete_salle(code_salle):
     delete_salle(code_salle)
     return jsonify({'success': True, 'message': 'Salle deleted'})
 
-# Students Routes
+# Students Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/get_salle_names', methods=['GET'])
 def api_get_salle_names():
     salles = get_salle_names()
@@ -136,7 +145,9 @@ def api_import_students():
     os.remove(file_path)
     return jsonify({'message': result})
 
-# Professors Routes
+
+
+# Professors Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/add_professor', methods=['POST'])
 def api_add_professor():
     data = request.get_json()
@@ -164,7 +175,7 @@ def api_send_emails():
     send_emails()
     return jsonify({'message': 'Emails sent successfully'})
 
-# Attendee List Routes
+# Attendee List Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/get_candidates_by_salle/<salle>', methods=['GET'])
 def api_get_candidates_by_salle(salle):
     candidates = get_candidates_by_salle(salle)
@@ -208,7 +219,7 @@ def api_import_absences():
         os.remove(file_path)
         return jsonify({'success': False, 'message': f"Failed to import file: {e}"})
 
-# Result Routes
+# Result Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/institute_data', methods=['GET'])
 def api_institute_data():
     name_post, nbr_exams = institute_data()
@@ -224,7 +235,7 @@ def api_calculate_and_export_results():
     result = calculate_and_export_results_api(selected_salle, selected_language)
     return jsonify(result)
 
-# Correction Routes
+# Correction Routes  /////////////////////////////////////////////////////////////////////////////////////
 @app.route('/api/calculate_final_grade', methods=['POST'])
 def api_calculate_final_grade():
     data = request.get_json()
@@ -262,7 +273,7 @@ def api_fetch_exam_details(module_name):
 
 # Existing Functions
 
-# Option Page
+# Option Page  /////////////////////////////////////////////////////////////////////////////////////
 def op_save_data(institute_name, exam_option, name_post, nbr_exams):
     if not institute_name or not exam_option or not name_post:
         return "❌ Please fill in all fields!"
@@ -327,7 +338,33 @@ def delete_exam(exam_id):
     except mysql.connector.Error as err:
         return str(err)
 
-# Salles
+def delete_all_data(confirm_window, entry):
+    """حذف جميع البيانات من الجداول عند تأكيد المستخدم."""
+    if entry.get() == "YES":
+        conn = get_db_connection()
+        if conn is None:
+            messagebox.showerror("Error", "Failed to connect to database.")
+            return
+        
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM exams")
+            cursor.execute("DELETE FROM candidats")
+            cursor.execute("DELETE FROM salles")
+            cursor.execute("DELETE FROM institutes")
+            cursor.execute("DELETE FROM professors")
+            conn.commit()
+            conn.close()
+
+            messagebox.showinfo("Success", "All data has been deleted successfully.")
+            confirm_window.destroy()
+
+        except Exception as err:
+            messagebox.showerror("Error", f"Database error: {err}")
+            confirm_window.destroy()
+    else:
+        messagebox.showwarning("Warning", "Incorrect input! Type 'YES' to confirm.")
+# Salles  /////////////////////////////////////////////////////////////////////////////////////
 def generate_code_salle():
     while True:
         random_code = "SALLE-" + ''.join(random.choices(string.digits, k=4))
@@ -370,7 +407,7 @@ def delete_salle(code_salle):
     conn.commit()
     conn.close()
 
-# Students
+# Students  /////////////////////////////////////////////////////////////////////////////////////
 def get_salle_names():
     try:
         conn = get_db_connection()
@@ -477,7 +514,7 @@ def import_students_from_excel(file_path):
     except Exception as e:
         return f"❌ Error during import: {str(e)}"
 
-# Professors
+# Professors  /////////////////////////////////////////////////////////////////////////////////////
 def generate_password(length=10):
     characters = string.ascii_letters + string.digits
     return ''.join(secrets.choice(characters) for _ in range(length))
@@ -593,7 +630,7 @@ def send_emails():
     except Exception as e:
         print("Failed to send emails:", e)
 
-# Attendee List
+# Attendee List  /////////////////////////////////////////////////////////////////////////////////////
 def get_candidates_by_salle(salle):
     try:
         conn = get_db_connection()
@@ -648,7 +685,7 @@ def import_absences():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to import file: {e}")
 
-# Result Page
+# Result Page  /////////////////////////////////////////////////////////////////////////////////////
 def institute_data():
     try:
         conn = get_db_connection()
@@ -855,7 +892,7 @@ def calculate_and_export_results_api(selected_salle, selected_language):
     except Error as e:
         return {'success': False, 'message': f"Database error: {e}"}
 
-# Correction Page
+# Correction Page  /////////////////////////////////////////////////////////////////////////////////////
 def calculate_final_grade(corr1, corr2, corr3, dif=5):
     try:
         c1 = float(corr1) if corr1 else 0

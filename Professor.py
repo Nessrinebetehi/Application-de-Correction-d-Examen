@@ -3,49 +3,9 @@ import tkinter as tk
 from tkinter import ttk
 import socket
 import qrcode
+import threading
 from PIL import Image, ImageTk
 from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details,calculate_final_grade,save_grades
-from flask import Flask, request, jsonify
-import threading
-
-app = Flask(__name__)
-
-latest_anonyme_id = None
-cr_anonyme_entry = None
-
-@app.route('/update_anonyme', methods=['POST'])
-def update_anonyme():
-    global latest_anonyme_id
-    try:
-        print("Requête reçue : ", request.data)
-        data = request.get_json(force=True)
-        if not data or 'anonyme_id' not in data:
-            print("Erreur : JSON invalide ou 'anonyme_id' manquant")
-            return jsonify({"error": "JSON invalide ou clé 'anonyme_id' manquante"}), 400
-        
-        anonyme_id = data['anonyme_id']
-        if not anonyme_id:
-            print("Erreur : 'anonyme_id' est vide")
-            return jsonify({"error": "'anonyme_id' ne peut pas être vide"}), 400
-        
-        latest_anonyme_id = anonyme_id
-        print(f"ID reçu avec succès : {anonyme_id}")
-
-        if cr_anonyme_entry:
-            cr_anonyme_entry.delete(0, tk.END)
-            cr_anonyme_entry.insert(0, anonyme_id)
-
-        return jsonify({"status": "success", "anonyme_id": anonyme_id}), 200
-    except Exception as e:
-        print(f"Erreur serveur : {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-def run_flask():
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
-
-flask_thread = threading.Thread(target=run_flask)
-flask_thread.daemon = True
-flask_thread.start()
 
 
 # Create the main window
@@ -132,6 +92,8 @@ cr_option.place(x=135, y=26, width=237, height=36)
 tk.Label(Corrections_page, text="Anonymat", font=("Arial", 14), bg="white").place(x=24, y=90)
 cr_anonyme_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
 cr_anonyme_entry.place(x=135, y=84, width=114, height=36)
+
+
 
 # Separator line
 separator = tk.Frame(Corrections_page, bg="#D9D9D9", height=2)
@@ -223,6 +185,28 @@ def handle_save():
 cr_done_btn = tk.Button(Corrections_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=handle_save)
 cr_done_btn.place(relx=0.97, y=290, width=148, height=27, anchor="e")
 
+def update_entry(data):
+    cr_anonyme_entry.delete(0, tk.END)
+    cr_anonyme_entry.insert(0, data)
+
+def start_server():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('0.0.0.0', 5000))
+    server_socket.listen(1)
+    print("Server started, listening on port 5000")
+
+    while True:
+        client_socket, address = server_socket.accept()
+        data = client_socket.recv(1024).decode('utf-8')
+        print(f"Received data from {address}: {data}")
+
+        window.after(0, update_entry, data)
+
+        client_socket.close()
+
+# Start server and GUI
+threading.Thread(target=start_server, daemon=True).start()
+
 # Function to get local IP address
 def get_local_ip():
     try:
@@ -273,6 +257,8 @@ def show_qr_code():
         # Display IP address text
         ip_label = tk.Label(qr_window, text=f"Local IP: {local_ip}", font=("Arial", 12))
         ip_label.pack()
+        
+
 
 # Add Mobile QR button (fixed command parameter)
 mobile_qr = tk.Button(Corrections_page, text="Mobile app", font=("Arial", 14), bg="#5D8BCD", fg="white", bd=0, command=show_qr_code)  # Removed quotes around show_qr_code

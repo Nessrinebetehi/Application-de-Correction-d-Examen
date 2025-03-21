@@ -10,7 +10,7 @@ import pandas as pd
 import os
 import qrcode
 from datetime import date
-from db_connector import op_save_data,insert_exam,get_exams,delete_exam
+from db_connector import op_save_data,insert_exam,get_exams,delete_exam,delete_all_data
 from db_connector import add_salle,get_all_salles,delete_salle,generate_code_salle
 from db_connector import get_db_connection
 from db_connector import get_salle_names,update_salle_comboboxes,get_exam_options,save_student,import_students_from_excel 
@@ -307,6 +307,26 @@ def on_save():
         nbr_exams_combobox.current(0)
     else:
         messagebox.showerror("Error", result)
+
+def show_delete_confirmation():
+    """فتح نافذة التأكيد لحذف جميع البيانات."""
+    confirm_window = tk.Toplevel(window)
+    confirm_window.title("Confirm Deletion")
+    confirm_window.geometry("300x130")
+
+    label = tk.Label(confirm_window, text="Type 'YES' to confirm deletion:", font=("Arial", 12))
+    label.pack(pady=5)
+
+    entry = tk.Entry(confirm_window, font=("Arial", 12))
+    entry.pack(pady=5)
+
+    ok_button = tk.Button(confirm_window, text="OK", font=("Arial", 12), bg="#D10801", fg="white",
+                          command=lambda: delete_all_data(confirm_window, entry))
+    ok_button.pack(pady=6)
+    ok_button.config(width=10)  # Adds width to the button
+
+op_delete_btn = tk.Button(option_page, text="Delete", font=("Arial", 14), bg="#D10801", fg="white", bd=0, command=show_delete_confirmation)
+op_delete_btn.place(relx=0.9, y=260, width=148, height=27, anchor="e")
 
 # Add button
 op_done_btn = tk.Button(option_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=on_save)
