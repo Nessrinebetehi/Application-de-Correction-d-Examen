@@ -129,8 +129,6 @@ coeff_label = tk.Label(Corrections_page, text="", font=("Arial", 14), bg="white"
 coeff_label.place(x=490, y=180)
 
 
-correction = 1
-
 tk.Label(Corrections_page, text="Correction 1", font=("Arial", 14), bg="white").place(x=24, y=230)
 cr_1_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333",
                       state="normal" if correction == 1 else "disabled")
