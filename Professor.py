@@ -5,7 +5,7 @@ import socket
 import qrcode
 import threading
 from PIL import Image, ImageTk
-from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details,calculate_final_grade,save_grades
+from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details,save_grade,get_db_connection
 
 
 # Create the main window
@@ -81,6 +81,7 @@ def get_correction():
 # Get correction value
 correction = get_correction()
 
+
 # GUI setup for Corrections page
 tk.Label(Corrections_page, text="Option", font=("Arial", 14), bg="white").place(x=24, y=30)
 
@@ -129,57 +130,47 @@ coeff_label = tk.Label(Corrections_page, text="", font=("Arial", 14), bg="white"
 coeff_label.place(x=490, y=180)
 
 
-tk.Label(Corrections_page, text="Correction 1", font=("Arial", 14), bg="white").place(x=24, y=230)
-cr_1_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333",
-                      state="normal" if correction == 1 else "disabled")
-cr_1_entry.place(x=140, y=225, width=114, height=36)
+tk.Label(Corrections_page, text="Correction", font=("Arial", 14), bg="white").place(x=24, y=230)
+cr_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333",
+                      state="normal")
+cr_entry.place(x=140, y=225, width=114, height=36)
 
-tk.Label(Corrections_page, text="Correction 2", font=("Arial", 14), bg="white").place(x=24, y=275)
-cr_2_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333",
-                      state="normal" if correction == 2 else "disabled")
-cr_2_entry.place(x=140, y=270, width=114, height=36)
 
-tk.Label(Corrections_page, text="Correction 3", font=("Arial", 14), bg="white").place(x=370, y=230)
-cr_3_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333",
-                      state="normal" if correction == 3 else "disabled")
-cr_3_entry.place(x=490, y=225, width=114, height=36)
-
-tk.Label(Corrections_page, text="Finale grade", font=("Arial", 14), bg="white").place(x=370, y=275)
+tk.Label(Corrections_page, text="Finale grade", font=("Arial", 14), bg="white").place(x=370, y=230)
 cr_grade_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="readonly")
-cr_grade_entry.place(x=490, y=270, width=114, height=36)
+cr_grade_entry.place(x=490, y=225, width=114, height=36)
+
+
 
 def handle_save():
-    global current_coefficient
-    # Get values from UI
-    anonyme_id = cr_anonyme_entry.get()
-    exam_module = cr_exam.get()
-    grade1 = cr_1_entry.get()
-    grade2 = cr_2_entry.get()
-    grade3 = cr_3_entry.get()
-    
-    # Calculate final grade
-    final_grade = calculate_final_grade(grade1, grade2, grade3)
-    
-    # Update final grade entry
-    cr_grade_entry.config(state="normal")
-    cr_grade_entry.delete(0, tk.END)
-    cr_grade_entry.insert(0, str(final_grade))
-    cr_grade_entry.config(state="readonly")
-    
-    # Save to database using connector function
-    if save_grades(anonyme_id, exam_module, grade1, grade2, grade3, final_grade, current_coefficient):
-        print("Grades saved successfully")
-        # Clear the relevant entry based on correction mode
-        if correction == 1:
-            cr_1_entry.delete(0, tk.END)
-        elif correction == 2:
-            cr_2_entry.delete(0, tk.END)
-        elif correction == 3:
-            cr_3_entry.delete(0, tk.END)
-    else:
-        print("Failed to save grades")
+    anonymous_id = cr_anonyme_entry.get()
+    exam_name = cr_exam.get()
+    coeff = coeff_label.cget("text")  # Get the coefficient value from coeff_label
+    try:
+        grade = float(cr_entry.get())
+        if 0 <= grade <= 20:
+            save_grade(anonymous_id, exam_name, correction, grade, coeff)  # Pass coeff to save_grade
+            # عرض الدرجة النهائية بعد الحساب (اختياري)
+            db = get_db_connection()
+            if db:
+                cursor = db.cursor()
+                cursor.execute(
+                    "SELECT finale_g FROM exams WHERE candidat_id = (SELECT id FROM candidats WHERE anonymous_id = %s) AND module_name = %s",
+                    (anonymous_id, exam_name)
+                )
+                final_grade = cursor.fetchone()
+                if final_grade and final_grade[0] is not None:
+                    cr_grade_entry.config(state="normal")
+                    cr_grade_entry.delete(0, tk.END)
+                    cr_grade_entry.insert(0, str(final_grade[0]))
+                    cr_grade_entry.config(state="readonly")
+                cursor.close()
+                db.close()
+        else:
+            print("Error: Grade must be between 0 and 20")
+    except ValueError:
+        print("Error: Please enter a valid number for the grade")
 
-# Connect the button to the handle_save function
 cr_done_btn = tk.Button(Corrections_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=handle_save)
 cr_done_btn.place(relx=0.97, y=290, width=148, height=27, anchor="e")
 

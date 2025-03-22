@@ -596,232 +596,300 @@ def institute_data():
     except Error:
         return ("Error", 0)  # Fallback values if fetch fails
     
-def calculate_and_export_results(selected_salle, selected_language):
-    """Calculate moyenne, update database, and export to Excel."""
-    if not selected_salle or not selected_language:
-        tk.messagebox.showerror("Error", "Please select a salle and language!")
-        return
 
+import mysql.connector
+from mysql.connector import Error
+import pandas as pd
+from datetime import datetime
+import tkinter as tk
+from tkinter import filedialog
+from openpyxl.utils import get_column_letter
+
+def calculate_candidate_moyen(candidat_id, conn):
     try:
-        # Fetch all existing modules and deduplicate module names
-        all_exams = get_exams()
-        if not all_exams:
-            tk.messagebox.showwarning("Warning", "No exams found in the database!")
-        all_module_names = list(dict.fromkeys([exam[1] for exam in all_exams]))  # Keep unique module_name only
-
-        # Fetch student data for the selected salle, including absence and decision
-        conn = get_db_connection()
-        if not conn:
-            tk.messagebox.showerror("Error", "Database connection failed!")
-            return
         cursor = conn.cursor()
-
         query = """
-        SELECT 
-            c.id, c.name, c.surname, c.birthday, i.exam_option,
-            e.module_name, e.finale_g, e.coefficient, c.absence, c.decision
-        FROM candidats c
-        LEFT JOIN exams e ON c.id = e.candidat_id
-        JOIN salles s ON c.salle_name = s.name_salle
-        JOIN institutes i ON s.institute_id = i.id
-        WHERE c.salle_name = %s
+            SELECT finale_g, coefficient 
+            FROM exams 
+            WHERE candidat_id = %s AND finale_g IS NOT NULL
         """
-        cursor.execute(query, (selected_salle,))
+        cursor.execute(query, (candidat_id,))
         results = cursor.fetchall()
 
-        students_data = {}
-        for row in results:
-            candidat_id, name, surname, birthday, exam_option, module_name, finale_g, coefficient, absence, decision = row
-            if candidat_id not in students_data:
-                students_data[candidat_id] = {
-                    "name": name,
-                    "surname": surname,
-                    "birthday": birthday,
-                    "option": exam_option,
-                    "modules": {},
-                    "total_weighted_grade": 0,
-                    "total_coefficient": 0,
-                    "absence": absence,
-                    "decision": decision
-                }
-            if module_name and finale_g is not None and coefficient is not None:
-                students_data[candidat_id]["modules"][module_name] = finale_g
-                students_data[candidat_id]["total_weighted_grade"] += finale_g * coefficient
-                students_data[candidat_id]["total_coefficient"] += coefficient
+        if not results:
+            return None
 
-        # Calculate moyenne, update database, and prepare data
-        student_list = []
-        update_query = "UPDATE candidats SET moyen = %s, decision = %s WHERE id = %s"
-        for candidat_id, data in students_data.items():
-            if data["absence"] > 2:
-                data["decision"] = "Rejected"  # Override decision if absence > 2
-                moyenne = 0  # Set moyenne to 0 for rejected students
+        weighted_sum = 0
+        total_coefficient = 0
+        for finale_g, coefficient in results:
+            weighted_sum += finale_g * coefficient
+            total_coefficient += coefficient
+
+        if total_coefficient == 0:
+            return None
+
+        moyen = weighted_sum / total_coefficient
+        moyen = max(0, min(20, moyen))
+
+        update_query = "UPDATE candidats SET moyen = %s WHERE id = %s"
+        cursor.execute(update_query, (moyen, candidat_id))
+        conn.commit()
+        return moyen
+    except Error as err:
+        print(f"Error calculating moyen: {err}")
+        return None
+
+def calculate_and_export_results(salle_name, language):
+    try:
+        # Database connection
+        conn = get_db_connection()  # Assumes this exists
+        cursor = conn.cursor()
+
+        # Fetch candidates, their exam data, and absence for the selected salle
+        query = """
+            SELECT c.id, c.name, c.surname, c.birthday, c.absence,
+                   GROUP_CONCAT(e.module_name SEPARATOR ',') AS modules,
+                   GROUP_CONCAT(e.finale_g SEPARATOR ',') AS grades
+            FROM candidats c
+            LEFT JOIN exams e ON c.id = e.candidat_id
+            WHERE c.salle_name = %s
+            GROUP BY c.id, c.name, c.surname, c.birthday, c.absence
+        """
+        cursor.execute(query, (salle_name,))
+        candidates = cursor.fetchall()
+
+        if not candidates:
+            print(f"No candidates found for salle: {salle_name}")
+            return
+
+        # Prepare data for Excel
+        data = []
+        module_list = None  # To use for headers later
+        for candidat_id, name, surname, birthday, absence, modules, grades in candidates:
+            # Calculate moyen for this candidate
+            moyen = calculate_candidate_moyen(candidat_id, conn)
+            
+            # Store the original moyen for sorting purposes
+            moyen_for_sorting = moyen if moyen is not None else -1  # Use -1 for N/A to rank them low
+            
+            # Determine what to display in the Moyen column based on absence
+            if absence is not None and absence > 2:
+                moyen = "Rejected" if language == "English" else "مرفوض"
+                moyen_for_sorting = -1  # Treat "Rejected" as the lowest rank
             else:
-                moyenne = (data["total_weighted_grade"] / data["total_coefficient"]) if data["total_coefficient"] > 0 else 0
-                # Keep the original decision unless absence forces rejection
-            # Update the database
-            cursor.execute(update_query, (round(moyenne, 2), data["decision"], candidat_id))
-            conn.commit()
+                moyen = "N/A" if moyen is None else moyen
 
-            student_list.append({
-                "id": candidat_id,
-                "name": data["name"],
-                "surname": data["surname"],
-                "birthday": data["birthday"],
-                "option": data["option"],
-                "modules": data["modules"],
-                "moyen": round(moyenne, 2),
-                "absence": data["absence"],
-                "decision": data["decision"]
-            })
+            # Format birthday for Excel compatibility
+            if isinstance(birthday, str):
+                birthday = datetime.strptime(birthday, '%Y-%m-%d')  # Parse if string
+            elif birthday is None:
+                birthday = "N/A"
+            # birthday remains a datetime object, which pandas will handle for Excel
 
-        # Close connection after updates
-        cursor.close()
-        conn.close()
+            # Split grades and modules into a list
+            module_list = modules.split(',') if modules else []
+            grade_list = [float(g) if g else "N/A" for g in (grades.split(',') if grades else [])]
 
-        # Sort by moyenne (descending)
-        student_list.sort(key=lambda x: x["moyen"], reverse=True)
+            # Construct row with an additional column for sorting
+            row = [name, surname, birthday] + grade_list + [moyen, moyen_for_sorting]
+            data.append(row)
 
-        # Prepare Excel columns based on language, including decision
-        if selected_language == "English":
-            columns = ["Name", "Surname", "Birthday", "Option"] + all_module_names + ["Average", "Absence", "Decision"]
-            rows = [
-                [s["name"], s["surname"], s["birthday"].strftime("%Y-%m-%d"), s["option"]] + 
-                [s["modules"].get(module, "") for module in all_module_names] + [s["moyen"], s["absence"], s["decision"]]
-                for s in student_list
-            ]
-            df = pd.DataFrame(rows, columns=columns)
-        elif selected_language == "Arabic":
-            columns = ["الاسم", "اللقب", "تاريخ الميلاد", "الخيار"] + all_module_names + ["المعدل", "الغياب", "القرار"]
-            rows = [
-                [s["name"], s["surname"], s["birthday"].strftime("%Y-%m-%d"), s["option"]] + 
-                [s["modules"].get(module, "") for module in all_module_names] + [s["moyen"], s["absence"], s["decision"]]
-                for s in student_list
-            ]
-            df = pd.DataFrame(rows, columns=columns)
+        # Define column headers based on language (include a hidden sorting column)
+        if language == "Arabic":
+            headers = ["الاسم", "اللقب", "تاريخ الميلاد"]  # Name, Surname, Birthday
+            headers += module_list  # Just the module names
+            headers.append("المعدل")  # Moyen
+            headers.append("Sort_Moyen")  # Hidden column for sorting
+            default_filename = f"نتائج_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        else:  # English
+            headers = ["Name", "Surname", "Birthday"]
+            headers += module_list  # Just the module names
+            headers.append("Moyen")
+            headers.append("Sort_Moyen")  # Hidden column for sorting
+            default_filename = f"results_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
-        # Let user choose Excel file path
-        default_filename = f"results_{selected_salle}_{selected_language}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        # Create DataFrame
+        df = pd.DataFrame(data, columns=headers)
+
+        # Format the birthday column in Excel as a date
+        df['تاريخ الميلاد' if language == "Arabic" else 'Birthday'] = pd.to_datetime(
+            df['تاريخ الميلاد' if language == "Arabic" else 'Birthday'], errors='coerce'
+        )
+
+        # Sort by the Sort_Moyen column in descending order
+        df = df.sort_values(by='Sort_Moyen', ascending=False)
+
+        # Drop the Sort_Moyen column before exporting
+        df = df.drop(columns=['Sort_Moyen'])
+
+        # Prompt user to choose save location
+        root = tk.Tk()
+        root.withdraw()  # Hide the main Tkinter window
         file_path = filedialog.asksaveasfilename(
             defaultextension=".xlsx",
-            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
             initialfile=default_filename,
+            filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")],
             title="Save Results As"
         )
-        
-        if file_path:
-            df.to_excel(file_path, index=False)
-            tk.messagebox.showinfo("Success", f"Excel file saved to '{file_path}' and database updated!")
-        else:
-            tk.messagebox.showinfo("Cancelled", "Export cancelled by user.")
+        root.destroy()  # Clean up the hidden window
 
-    except Error as e:
-        tk.messagebox.showerror("Error", f"Database error: {e}")
+        # If user cancels the dialog, file_path will be empty
+        if not file_path:
+            print("Export canceled by user.")
+            return
+
+        # Export to Excel with custom date formatting and column width
+        with pd.ExcelWriter(file_path, engine='openpyxl', date_format='dd/mm/yyyy') as writer:
+            df.to_excel(writer, index=False)
+            worksheet = writer.sheets['Sheet1']
+            # Format birthday column
+            date_col_idx = headers.index('تاريخ الميلاد' if language == "Arabic" else 'Birthday') + 1  # 1-based indexing
+            for cell in worksheet[f'{chr(64 + date_col_idx)}:{chr(64 + date_col_idx)}']:
+                cell.number_format = 'DD/MM/YYYY'
+            # Adjust column width for birthday
+            date_col_letter = get_column_letter(date_col_idx)
+            worksheet.column_dimensions[date_col_letter].width = 15
+
+        print(f"Excel file saved at: {file_path}")
+
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
         if 'conn' in locals() and conn.is_connected():
             conn.close()
-
-if __name__ == "__main__":
-    conn = get_db_connection()
-    if conn:
-        conn.close()
-        print("🔌 Connection closed.")
 #Result page///////////////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\\\\
     
 #correction_page////////////////////////////////////////////////////////////////////////////
-def calculate_final_grade(corr1, corr2, corr3, dif=5):
+# دالة لحساب الدرجة النهائية
+def calculate_final_grade(corr1, corr2, corr3, dif=2):
+    # تحويل القيم إلى float، مع تعيين 0 إذا كانت القيمة فارغة
+    c1 = float(corr1) if corr1 is not None else 0
+    c2 = float(corr2) if corr2 is not None else 0
+    c3 = float(corr3) if corr3 is not None else 0
+
+    # حساب المتوسطات
+    m1 = abs(c1 + c3) / 2
+    m2 = abs(c2 + c3) / 2
+    m3 = abs(c1 + c2) / 2
+
+    # حساب الفروقات
+    d1 = abs(c1 - c3)
+    d2 = abs(c2 - c3)
+    d3 = abs(c1 - c2)
+
+    final_grade = 0
+
+    # الشرط الأول
+    if d1 <= dif or d2 <= dif:
+        if d1 < d2:
+            final_grade = m1
+        elif d2 < d1:
+            final_grade = m2
+        elif d1 == d2:
+            final_grade = max(m1, m2)
+
+    # الشرط الثاني
+    elif d1 >= dif and d2 >= dif:
+        if d1 < d2 and d1 < d3:
+            final_grade = m1
+        elif d2 < d1 and d2 < d3:
+            final_grade = m2
+        elif d3 < d1 and d3 < d2:
+            final_grade = m3
+        elif d2 == d1 and d1 < d3:
+            final_grade = max(m2, m1)
+        elif d3 == d1 and d1 < d2:
+            final_grade = max(m3, m1)
+        elif d2 == d3 and d2 < d1:
+            final_grade = max(m3, m2)
+
+    return round(final_grade, 2)  # تقريب الدرجة إلى منزلتين عشريتين
+
+# دالة لحفظ الدرجة والدرجة النهائية
+def save_grade(anonymous_id, exam_name, correction, grade, coeff):
+    db = get_db_connection()
+    if db is None:
+        return
+
+    cursor = db.cursor()
     try:
-        # Convert strings to float, empty strings to 0
-        c1 = float(corr1) if corr1 else 0
-        c2 = float(corr2) if corr2 else 0
-        c3 = float(corr3) if corr3 else 0
+        # Convert coeff to float for database storage
+        try:
+            coeff = float(coeff)
+        except ValueError:
+            print("Error: Coefficient must be a valid number. Using default value 1.0")
+            coeff = 1.0
 
-        # Calculate means
-        m1 = abs(c1 + c3) / 2
-        m2 = abs(c2 + c3) / 2
-        m3 = abs(c1 + c2) / 2
+        # 1. جلب candidat_id باستخدام anonymous_id
+        cursor.execute("SELECT id FROM candidats WHERE anonymous_id = %s", (anonymous_id,))
+        candidat_result = cursor.fetchone()
+        if not candidat_result:
+            print(f"Error: No candidate found with anonymous_id '{anonymous_id}'")
+            return
+        candidat_id = candidat_result[0]
 
-        # Calculate differences
-        d1 = abs(c1 - c3)
-        d2 = abs(c2 - c3)
-        d3 = abs(c1 - c2)
+        # 2. التحقق من وجود سجل في exams
+        cursor.execute("SELECT id FROM exams WHERE candidat_id = %s AND module_name = %s", (candidat_id, exam_name))
+        exam_record = cursor.fetchone()
 
-        final_grade = 0
+        if not exam_record:
+            # إنشاء سجل جديد إذا لم يكن موجودًا مع القيمة coeff
+            cursor.execute(
+                "INSERT INTO exams (candidat_id, module_name, coefficient) VALUES (%s, %s, %s)",
+                (candidat_id, exam_name, coeff)
+            )
+            db.commit()
+            print(f"Created new exam record for candidat_id {candidat_id} and module_name '{exam_name}' with coefficient {coeff}")
+        else:
+            # تحديث القيمة coeff إذا كان السجل موجودًا
+            cursor.execute(
+                "UPDATE exams SET coefficient = %s WHERE candidat_id = %s AND module_name = %s",
+                (coeff, candidat_id, exam_name)
+            )
+            db.commit()
+            print(f"Updated coefficient to {coeff} for candidat_id {candidat_id} and module_name '{exam_name}'")
 
-        # First condition block
-        if d1 <= dif or d2 <= dif:
-            if d1 < d2:
-                final_grade = m1
-            elif d2 < d1:
-                final_grade = m2
-            elif d1 == d2:
-                final_grade = max(m1, m2)
+        # 3. تحديث الدرجة بناءً على correction
+        if correction == 1:
+            sql = "UPDATE exams SET grade_1 = %s WHERE candidat_id = %s AND module_name = %s"
+        elif correction == 2:
+            sql = "UPDATE exams SET grade_2 = %s WHERE candidat_id = %s AND module_name = %s"
+        elif correction == 3:
+            sql = "UPDATE exams SET grade_3 = %s WHERE candidat_id = %s AND module_name = %s"
 
-        # Second condition block
-        elif d1 >= dif and d2 >= dif:
-            if d1 < d2 and d1 < d3:
-                final_grade = m1
-            elif d2 < d1 and d2 < d3:
-                final_grade = m2
-            elif d3 < d1 and d3 < d2:
-                final_grade = m3
-            elif d2 == d1 and d1 < d3:
-                final_grade = max(m2, m1)
-            elif d3 == d1 and d1 < d2:
-                final_grade = max(m3, m1)
-            elif d2 == d3 and d2 < d1:
-                final_grade = max(m3, m2)
+        values = (grade, candidat_id, exam_name)
+        cursor.execute(sql, values)
+        db.commit()
+        print(f"Grade {grade} saved for {exam_name} with correction {correction}")
 
-        return round(final_grade, 2)
-
-    except ValueError:
-        return 0
-
-def save_grades(anonyme_id, exam_module, grade1, grade2, grade3, final_grade, coefficient):
-    conn = None
-    try:
-        conn = get_db_connection()
-        if not conn:
-            return False
-        
-        cursor = conn.cursor()
-        
-        # Get candidat_id from anonymous_id
-        cursor.execute("SELECT id FROM candidats WHERE anonymous_id = %s", (anonyme_id,))
+        # 4. جلب جميع الدرجات لحساب الدرجة النهائية
+        cursor.execute(
+            "SELECT grade_1, grade_2, grade_3, coefficient FROM exams WHERE candidat_id = %s AND module_name = %s",
+            (candidat_id, exam_name)
+        )
         result = cursor.fetchone()
-        if not result:
-            print("Error: No candidate found with this anonymous ID")
-            return False
-        candidat_id = result[0]
+        if result:
+            grades = result[0:3]  # grade_1, grade_2, grade_3
+            db_coeff = result[3]  # coefficient from database
+            final_grade = calculate_final_grade(grades[0], grades[1], grades[2], db_coeff)  # Pass coefficient to calculation
+            # 5. تحديث الدرجة النهائية
+            cursor.execute(
+                "UPDATE exams SET finale_g = %s WHERE candidat_id = %s AND module_name = %s",
+                (final_grade, candidat_id, exam_name)
+            )
+            db.commit()
+            print(f"Final grade {final_grade} calculated and saved for {exam_name} with coefficient {db_coeff}")
 
-        # Convert empty strings to None for nullable columns
-        grade1 = float(grade1) if grade1 else None
-        grade2 = float(grade2) if grade2 else None
-        grade3 = float(grade3) if grade3 else None
-        final_grade = float(final_grade) if final_grade else None
-
-        # Update or insert exam record, including coefficient
-        cursor.execute("""
-            INSERT INTO exams (candidat_id, module_name, coefficient, grade_1, grade_2, grade_3, finale_g)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON DUPLICATE KEY UPDATE 
-            coefficient = VALUES(coefficient),
-            grade_1 = VALUES(grade_1),
-            grade_2 = VALUES(grade_2),
-            grade_3 = VALUES(grade_3),
-            finale_g = VALUES(finale_g)
-        """, (candidat_id, exam_module, coefficient, grade1, grade2, grade3, final_grade))
-
-        conn.commit()
-        return True
-
-    except Error as e:
-        print(f"Error saving grades: {e}")
-        return False
+    except mysql.connector.Error as err:
+        print(f"Database error: {err}")
     finally:
-        if conn and conn.is_connected():
-            cursor.close()
-            conn.close()
-
+        cursor.close()
+        db.close()
+        
 def fetch_exam_modules():
     conn = None
     try:

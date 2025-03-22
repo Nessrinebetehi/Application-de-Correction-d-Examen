@@ -42,7 +42,6 @@ CREATE TABLE candidats (
     name VARCHAR(50) NOT NULL,        
     surname VARCHAR(50) NOT NULL,      
     birthday DATE NOT NULL,           
-    sex ENUM('Male', 'Female') NOT NULL, 
     anonymous_id VARCHAR(255) UNIQUE NOT NULL,
     moyen DECIMAL(5, 2) NOT NULL DEFAULT 10.00 CHECK (moyen BETWEEN 0 AND 20),
     decision ENUM('Accepted', 'Rejected', 'Pending') NOT NULL DEFAULT 'Pending', 
@@ -61,5 +60,5 @@ CREATE TABLE exams (
     grade_2 DECIMAL(5, 2) CHECK (grade_2 BETWEEN 0 AND 20),
     grade_3 DECIMAL(5, 2) CHECK (grade_3 BETWEEN 0 AND 20),
     finale_g DECIMAL(5, 2) CHECK (finale_g BETWEEN 0 AND 20),
-    FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON ON DELETE CASCADE
+    FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE CASCADE
 );

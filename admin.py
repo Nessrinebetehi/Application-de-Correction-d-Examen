@@ -714,13 +714,13 @@ tk.Label(results_page, text=name_post, font=("Arial", 12), bg="white").place(x=1
 tk.Label(results_page, text=nbr_exams, font=("Arial", 12), bg="white").place(x=170, y=208)
 
 rs_done_btn = tk.Button(
-    results_page, 
-    text="Result", 
-    font=("Arial", 14), 
-    bg="#00B400", 
-    fg="white", 
-    bd=0,
-    command=lambda: calculate_and_export_results(r_salle_combobox.get(), language_combobox.get())
+     results_page, 
+     text="Result", 
+     font=("Arial", 14), 
+     bg="#00B400", 
+     fg="white", 
+     bd=0,
+     command=lambda: calculate_and_export_results(r_salle_combobox.get(), language_combobox.get())
 )
 rs_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 
