@@ -20,11 +20,13 @@ import re
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host="127.0.0.1",
-            port="3306",
-            user="root",
-            password="root",
-            database="anonymat"
+            host=os.getenv("DB_HOST", "127.0.0.1"),
+            port=int(os.getenv("DB_PORT", "3306")),
+            user=os.getenv("DB_USER", "root"),
+            password=os.getenv("DB_PASSWORD", "root"),
+            database=os.getenv("DB_NAME", "anonymat"),
+            ssl_ca="tidb-ca.pem",  # مسار ملف الشهادة
+            ssl_verify_cert=True
         )
         if conn.is_connected():
             print("✅ Successfully connected to the database!")
