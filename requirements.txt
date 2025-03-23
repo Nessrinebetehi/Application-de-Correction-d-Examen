@@ -1,0 +1,9 @@
+tk
+pillow
+tkcalendar
+pandas
+qrcode
+mysql-connector-python
+threading
+smtplib
+email
