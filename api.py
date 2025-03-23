@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import os
+from flask_cors import CORS
 from db_connector import (
     get_db_connection, op_save_data, insert_exam, get_exams, delete_exam, 
     add_salle, get_all_salles, delete_salle, save_student, import_students_from_excel,
@@ -7,8 +8,8 @@ from db_connector import (
     send_emails, get_candidates_by_salle, get_all_candidates, import_absences,
     calculate_and_export_results, save_grade, fetch_exam_modules, fetch_exam_details
 )
-
 app = Flask(__name__)
+CORS(app)
 
 # نقطة نهاية للتحقق من حالة الخادم
 @app.route('/api/health', methods=['GET'])
