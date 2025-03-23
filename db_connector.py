@@ -25,7 +25,7 @@ def get_db_connection():
             user=os.getenv("DB_USER", "root"),
             password=os.getenv("DB_PASSWORD", "root"),
             database=os.getenv("DB_NAME", "anonymat"),
-            ssl_ca="tidb-ca.pem",  # مسار ملف الشهادة
+            ssl_ca="/app/tidb-ca.pem",  # المسار الكامل على Render
             ssl_verify_cert=True
         )
         if conn.is_connected():

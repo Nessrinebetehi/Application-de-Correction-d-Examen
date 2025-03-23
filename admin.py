@@ -138,7 +138,7 @@ def add_exams_window():
     table.place(x=14, y=92, width=705, height=160)
 
     def load_exams():
-            response = requests.get("https://pfcc.onrender.com/api/exams")
+            response = requests.get("https://pfcc-1.onrender.com/api/exams")
             exams = response.json()["exams"]
             for row in table.get_children():
                 table.delete(row)
@@ -151,7 +151,7 @@ def add_exams_window():
                 coeff = coeff_entry.get().strip()
                 if module and coeff.replace('.', '', 1).isdigit():
                     response = requests.post(
-                        "https://pfcc.onrender.com/api/exams",
+                        "https://pfcc-1.onrender.com/api/exams",
                         json={"module": module, "coefficient": float(coeff)}
                     )
                     if response.status_code == 200:
@@ -167,7 +167,7 @@ def add_exams_window():
             selected_item = table.selection()
             if selected_item:
                 exam_id = table.item(selected_item[0])["values"][0]
-                response = requests.delete(f"https://pfcc.onrender.com/api/exams/{exam_id}")
+                response = requests.delete(f"https://pfcc-1.onrender.com/api/exams/{exam_id}")
                 if response.status_code == 200:
                     table.delete(selected_item[0])
                 else:
@@ -221,7 +221,7 @@ def add_salles_window():
     table.place(x=14, y=92, width=705, height=160)
 
     def load_salles():
-            response = requests.get("https://pfcc.onrender.com/api/salles")
+            response = requests.get("https://pfcc-1.onrender.com/api/salles")
             salles = response.json()["salles"]
             for row in table.get_children():
                 table.delete(row)
@@ -233,7 +233,7 @@ def add_salles_window():
         capacity = capacity_entry.get().strip()
         if salle and capacity.isdigit():
             response = requests.post(
-                "https://pfcc.onrender.com/api/salles",
+                "https://pfcc-1.onrender.com/api/salles",
                 json={"name": salle, "capacity": int(capacity)}
             )
             if response.status_code == 200:
@@ -249,7 +249,7 @@ def add_salles_window():
         selected_item = table.selection()
         if selected_item:
             code_salle = table.item(selected_item[0])["values"][0]
-            response = requests.delete(f"https://pfcc.onrender.com/api/salles/{code_salle}")
+            response = requests.delete(f"https://pfcc-1.onrender.com/api/salles/{code_salle}")
             if response.status_code == 200:
                 table.delete(selected_item[0])
             else:
@@ -284,7 +284,7 @@ def on_save():
         messagebox.showerror("Error", "Please fill in all required fields.")
         return
     response = requests.post(
-        "https://pfcc.onrender.com/api/institute",
+        "https://pfcc-1.onrender.com/api/institute",
         json={"institute_name": institute_name, "exam_option": exam_option, "name_post": name_post, "nbr_exams": nbr_exams}
     )
     data = response.json()
@@ -333,7 +333,7 @@ def import_excel():
     if file_path:
         with open(file_path, 'rb') as f:
             response = requests.post(
-                "https://pfcc.onrender.com/api/students/import",
+                "https://pfcc-1.onrender.com/api/students/import",
                 files={"file": f}
             )
         messagebox.showinfo("Import Result", response.json()["message"])
@@ -348,7 +348,7 @@ tk.Label(students_page, text="Option", font=("Arial", 14), bg="white").place(x=2
 
 
 def update_combobox():
-    response = requests.get("https://pfcc.onrender.com/api/exam_options")
+    response = requests.get("https://pfcc-1.onrender.com/api/exam_options")
     st_option_combo["values"] = response.json()["exam_options"]
     if st_option_combo["values"]:
         st_option_combo.current(0)
@@ -376,7 +376,7 @@ dob_entry.place(x=163, y=220, width=237, height=36)
 
 #//////////////////////////////////////////////////////
 def update_salle_combobox():
-    response = requests.get("https://pfcc.onrender.com/api/salle_names")
+    response = requests.get("https://pfcc-1.onrender.com/api/salle_names")
     st_salle_combobox['values'] = response.json()["salle_names"]
     if st_salle_combobox['values']:
         st_salle_combobox.current(0)
@@ -400,7 +400,7 @@ def save_student_data():
         messagebox.showerror("Error", "Please fill in all required fields.")
         return
     response = requests.post(
-        "https://pfcc.onrender.com/api/students",
+        "https://pfcc-1.onrender.com/api/students",
         json={"name": name, "surname": surname, "dob": dob, "salle_code": salle, "exam_option": exam_option}
     )
     data = response.json()
@@ -427,7 +427,7 @@ def import_professors():
     if file_path:
         with open(file_path, 'rb') as f:
             response = requests.post(
-                "https://pfcc.onrender.com/api/students/import",  # يجب أن تكون نقطة نهاية منفصلة للأساتذة، لكن هنا نستخدم نفس المثال
+                "https://pfcc-1.onrender.com/api/students/import",  # يجب أن تكون نقطة نهاية منفصلة للأساتذة، لكن هنا نستخدم نفس المثال
                 files={"file": f}
             )
         messagebox.showinfo("Import Result", response.json()["message"])
@@ -448,7 +448,7 @@ def delete_selected_prof():
     if confirm:
         for item in selected_items:
             email = table_prof.item(item, "values")[1]
-            response = requests.delete(f"https://pfcc.onrender.com/api/professors/{email}")
+            response = requests.delete(f"https://pfcc-1.onrender.com/api/professors/{email}")
             if response.status_code == 200:
                 table_prof.delete(item)
 
@@ -508,7 +508,7 @@ def add_prof_window():
                 messagebox.showerror("Error", "Please fill in all fields.")
                 return
             response = requests.post(
-                "https://pfcc.onrender.com/api/professors",
+                "https://pfcc-1.onrender.com/api/professors",
                 json={"name": name, "surname": surname, "email": email, "correction": correction, "module": module}
             )
             data = response.json()
@@ -543,7 +543,7 @@ table_prof.place(x=25, y=55, relwidth=0.95, height=228)
 
 
 def update_table():
-    response = requests.get("https://pfcc.onrender.com/api/professors")
+    response = requests.get("https://pfcc-1.onrender.com/api/professors")
     profs = response.json()["professors"]
     table_prof.delete(*table_prof.get_children())
     for prof in profs:
@@ -566,7 +566,7 @@ def generate_excel():
     if not salle:
         messagebox.showerror("Error", "Please select a salle.")
         return
-    response = requests.get(f"https://pfcc.onrender.com/api/candidates/{salle}")
+    response = requests.get(f"https://pfcc-1.onrender.com/api/candidates/{salle}")
     candidates = response.json()["candidates"]
     if not candidates:
         messagebox.showinfo("Info", "No candidates found for the selected salle.")
@@ -583,7 +583,7 @@ print_btn.place(x=294, y=84, width=148, height=27)
 
 
 def generate_qr_codes():
-    response = requests.get("https://pfcc.onrender.com/api/candidates")
+    response = requests.get("https://pfcc-1.onrender.com/api/candidates")
     candidates = response.json()["candidates"]
     if not candidates:
         messagebox.showinfo("Info", "No candidates found in the database.")
@@ -643,7 +643,7 @@ rs_done_btn = tk.Button(
 rs_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 
 rs_done_btn.config(command=lambda: requests.post(
-    "https://pfcc.onrender.com/api/results",
+    "https://pfcc-1.onrender.com/api/results",
     json={"salle_name": r_salle_combobox.get(), "language": language_combobox.get()}
 ))
 
