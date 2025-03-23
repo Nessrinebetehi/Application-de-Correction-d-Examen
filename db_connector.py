@@ -25,8 +25,8 @@ def get_db_connection():
             user=os.getenv("DB_USER", "root"),
             password=os.getenv("DB_PASSWORD", "root"),
             database=os.getenv("DB_NAME", "anonymat"),
-            ssl_ca="/app/tidb-ca.pem",  # المسار الكامل على Render
-            ssl_verify_cert=True
+            ssl_ca=None,  # تعطيل SSL
+            ssl_verify_cert=False
         )
         if conn.is_connected():
             print("✅ Successfully connected to the database!")
@@ -34,12 +34,6 @@ def get_db_connection():
     except mysql.connector.Error as err:
         print(f"❌ Database Connection Error: {err}")
         return None
-
-if __name__ == "__main__":
-    conn = get_db_connection()
-    if conn:
-        conn.close()
-        print("🔌 Connection closed.")
 
 # option page //////////////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\
 
