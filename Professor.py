@@ -1,3 +1,4 @@
+#professors.py
 import sys
 import tkinter as tk
 from tkinter import ttk
@@ -5,6 +6,7 @@ import socket
 import qrcode
 import threading
 from PIL import Image, ImageTk
+import requests
 from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details,save_grade,get_db_connection
 
 
@@ -85,9 +87,12 @@ correction = get_correction()
 # GUI setup for Corrections page
 tk.Label(Corrections_page, text="Option", font=("Arial", 14), bg="white").place(x=24, y=30)
 
-options = get_exam_options()
-cr_option = ttk.Combobox(Corrections_page, values=options, state="readonly")
+
+cr_option = ttk.Combobox(Corrections_page, state="readonly")
 cr_option.place(x=135, y=26, width=237, height=36)
+
+options = requests.get("https://pfcc.onrender.com/api/exam_options").json()["exam_options"]
+cr_option["values"] = options
 
 
 tk.Label(Corrections_page, text="Anonymat", font=("Arial", 14), bg="white").place(x=24, y=90)
@@ -108,18 +113,18 @@ current_coefficient = 0.0
 def update_exam_details(event):
     global current_coefficient
     selected_exam = cr_exam.get()
-    subject, coeff = fetch_exam_details(selected_exam)
-    subject_label.config(text=subject)
-    coeff_label.config(text=str(coeff))
-    current_coefficient = coeff  # Store coefficient for later use
+    response = requests.get(f"https://pfcc.onrender.com/api/exam_details/{selected_exam}")
+    data = response.json()
+    subject_label.config(text=data["subject"])
+    coeff_label.config(text=str(data["coefficient"]))
+    current_coefficient = data["coefficient"]
 
 tk.Label(Corrections_page, text="Exam", font=("Arial", 14), bg="white").place(x=264, y=90)
 cr_exam = ttk.Combobox(Corrections_page, state="readonly")
 cr_exam.place(x=325, y=84, width=95, height=36)
 
-exam_modules = fetch_exam_modules()
+exam_modules = requests.get("https://pfcc.onrender.com/api/exam_modules").json()["modules"]
 cr_exam["values"] = exam_modules
-cr_exam.bind("<<ComboboxSelected>>", update_exam_details)
 
 tk.Label(Corrections_page, text="Subject :", font=("Arial", 14), bg="white").place(x=24, y=180)
 subject_label = tk.Label(Corrections_page, text="", font=("Arial", 14), bg="white")
@@ -145,27 +150,22 @@ cr_grade_entry.place(x=490, y=225, width=114, height=36)
 def handle_save():
     anonymous_id = cr_anonyme_entry.get()
     exam_name = cr_exam.get()
-    coeff = coeff_label.cget("text")  # Get the coefficient value from coeff_label
+    coeff = coeff_label.cget("text")
     try:
         grade = float(cr_entry.get())
         if 0 <= grade <= 20:
-            save_grade(anonymous_id, exam_name, correction, grade, coeff)  # Pass coeff to save_grade
-            # عرض الدرجة النهائية بعد الحساب (اختياري)
-            db = get_db_connection()
-            if db:
-                cursor = db.cursor()
-                cursor.execute(
-                    "SELECT finale_g FROM exams WHERE candidat_id = (SELECT id FROM candidats WHERE anonymous_id = %s) AND module_name = %s",
-                    (anonymous_id, exam_name)
-                )
-                final_grade = cursor.fetchone()
-                if final_grade and final_grade[0] is not None:
-                    cr_grade_entry.config(state="normal")
-                    cr_grade_entry.delete(0, tk.END)
-                    cr_grade_entry.insert(0, str(final_grade[0]))
-                    cr_grade_entry.config(state="readonly")
-                cursor.close()
-                db.close()
+            response = requests.post(
+                "https://pfcc.onrender.com/api/grades",
+                json={"anonymous_id": anonymous_id, "exam_name": exam_name, "correction": correction, "grade": grade, "coeff": coeff}
+            )
+            if response.status_code == 200:
+                # جلب الدرجة النهائية من الـ API إذا لزم الأمر
+                cr_grade_entry.config(state="normal")
+                cr_grade_entry.delete(0, tk.END)
+                cr_grade_entry.insert(0, "تم الحفظ")  # يمكن تحسين هذا لجلب الدرجة النهائية
+                cr_grade_entry.config(state="readonly")
+            else:
+                print(response.json()["message"])
         else:
             print("Error: Grade must be between 0 and 20")
     except ValueError:

@@ -1,3 +1,4 @@
+#db_connector.py
 import secrets
 import mysql.connector
 import threading
@@ -19,11 +20,11 @@ import re
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST", "127.0.0.1"),  # Default: localhost
-            port=os.getenv("DB_PORT", "3306"),  
-            user=os.getenv("DB_USER", "root"),  
-            password=os.getenv("DB_PASSWORD", "root"),  
-            database=os.getenv("DB_NAME", "anonymat")  
+            host="127.0.0.1",
+            port="3306",
+            user="root",
+            password="root",
+            database="anonymat"
         )
         if conn.is_connected():
             print("✅ Successfully connected to the database!")

@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
 import subprocess
+import requests
 from db_connector import get_db_connection
 
 # إنشاء النافذة
@@ -58,39 +59,28 @@ def on_login():
         return
 
     try:
-        conn = get_db_connection()
-        if conn is None:
-            return
-        
-        cursor = conn.cursor()
+        # إرسال طلب إلى API للتحقق من تسجيل الدخول
+        response = requests.post(
+            "https://pfcc.onrender.com/api/login",  # استبدل بـ URL الخاص بـ Render
+            json={"email": email, "password": password}
+        )
+        data = response.json()
 
-
-        cursor.execute("SELECT 'responsable' FROM responsables WHERE email = %s AND password = %s", (email, password))
-        result = cursor.fetchone()
-
-
-        if not result:
-            cursor.execute("SELECT 'professor', correction FROM professors WHERE email = %s AND password = %s", (email, password))
-            result = cursor.fetchone()
-
-        conn.close()
-
-        if result:
-            role = result[0]
+        if response.status_code == 200 and "role" in data:
+            role = data["role"]
             window.destroy()
             if role == "responsable":
                 subprocess.run(["python", "admin.py"], check=True)
             elif role == "professor":
-                correction_number = result[1]
-                subprocess.run(["python", "professor.py", str(correction_number)], check=True)  
+                correction_number = data["correction"]
+                subprocess.run(["python", "professor.py", str(correction_number)], check=True)
             else:
                 messagebox.showerror("Error", "Unauthorized access.")
         else:
-            messagebox.showerror("Error", "Invalid email or password.")
+            messagebox.showerror("Error", data.get("message", "Invalid email or password."))
 
-    except Exception as err:
-        messagebox.showerror("Error", f"Database Query Error: {err}")
-
+    except requests.RequestException as err:
+        messagebox.showerror("Error", f"API Error: {err}")
 # زر تسجيل الدخول
 login_button = tk.Button(
     window, 
