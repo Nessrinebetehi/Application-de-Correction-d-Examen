@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_file
 import threading
 import os
 from datetime import datetime
+
 from db_connector import (
     get_db_connection, op_save_data, delete_all_data, insert_exam, get_exams, delete_exam,
     generate_code_salle, add_salle, get_all_salles, delete_salle, get_salle_names,
@@ -13,6 +14,8 @@ from db_connector import (
 )
 
 app = Flask(__name__)
+def home():
+    return "Hello, Flask on Render!"
 
 # نقطة نهاية لاختبار الاتصال بقاعدة البيانات (get_db_connection)
 @app.route('/api/db-connection', methods=['GET'])
@@ -399,7 +402,7 @@ def get_exam_details(module_name):
 
 # تشغيل الخادم
 def run_flask():
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    app.run(host='0.0.0.0', port=5001, debug=True)
 
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask, daemon=True)
