@@ -4,6 +4,6 @@ tkcalendar
 pandas
 qrcode
 mysql-connector-python
-smtplib
-email
+flask
 flask-cors
+gunicorn
