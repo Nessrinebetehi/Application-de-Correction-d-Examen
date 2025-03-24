@@ -16,23 +16,23 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from mysql.connector import Error
 import re
-
+import pymysql
 import os
 import mysql.connector
 
 def get_db_connection():
     try:
-        conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST", "127.0.0.1"),
-            port=int(os.getenv("DB_PORT", "3306")),
-            user=os.getenv("DB_USER", "root"),
-            password=os.getenv("DB_PASSWORD", "root"),
-            database=os.getenv("DB_NAME", "anonymat"),
+        conn = pymysql.connect(
+            host=os.getenv("MYSQLHOST"),
+            port=int(os.getenv("MYSQLPORT", 3306)),
+            user=os.getenv("MYSQLUSER"),
+            password=os.getenv("MYSQLPASSWORD"),
+            database=os.getenv("MYSQLDATABASE")
         )
-        if conn.is_connected():
+        if conn.open:
             print("✅ Successfully connected to the database!")
         return conn
-    except mysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"❌ Database Connection Error: {err}")
         return None
 
