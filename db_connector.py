@@ -17,6 +17,9 @@ from email.mime.multipart import MIMEMultipart
 from mysql.connector import Error
 import re
 
+import os
+import mysql.connector
+
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
@@ -25,8 +28,6 @@ def get_db_connection():
             user=os.getenv("DB_USER", "root"),
             password=os.getenv("DB_PASSWORD", "root"),
             database=os.getenv("DB_NAME", "anonymat"),
-            ssl_ca=None,  # تعطيل SSL
-            ssl_verify_cert=False
         )
         if conn.is_connected():
             print("✅ Successfully connected to the database!")
