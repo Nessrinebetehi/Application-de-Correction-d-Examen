@@ -10,7 +10,7 @@ import qrcode
 import requests
 from datetime import date
 from db_connector import (
-    op_save_data, insert_exam, delete_exam, delete_all_data,
+    op_save_data, insert_exam, get_exams, delete_exam, delete_all_data,
 
 )
 
@@ -141,7 +141,8 @@ def add_exams_window():
             module = module_entry.get().strip()
             coeff = coeff_entry.get().strip()
             if module and coeff.replace('.', '', 1).isdigit():
-                result = insert_exam(module, float(coeff))
+                # Pass a placeholder candidat_id (0) since this exam is not yet associated with a candidate
+                result = insert_exam(0, module, float(coeff))
                 if result["success"]:
                     load_exams()
                     module_entry.delete(0, tk.END)
