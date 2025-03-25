@@ -91,7 +91,7 @@ tk.Label(Corrections_page, text="Option", font=("Arial", 14), bg="white").place(
 cr_option = ttk.Combobox(Corrections_page, state="readonly")
 cr_option.place(x=135, y=26, width=237, height=36)
 
-options = requests.get("https://pfcc-1.onrender.com/api/exam_options").json()["exam_options"]
+options = requests.get("https://pfcc-1.onrender.comgit/api/exam_options").json()["exam_options"]
 cr_option["values"] = options
 
 
@@ -113,7 +113,7 @@ current_coefficient = 0.0
 def update_exam_details(event):
     global current_coefficient
     selected_exam = cr_exam.get()
-    response = requests.get(f"https://pfcc-1.onrender.com/api/exam_details/{selected_exam}")
+    response = requests.get(f"https://pfcc-1.onrender.comgit/api/exam_details/{selected_exam}")
     data = response.json()
     subject_label.config(text=data["subject"])
     coeff_label.config(text=str(data["coefficient"]))
@@ -123,7 +123,7 @@ tk.Label(Corrections_page, text="Exam", font=("Arial", 14), bg="white").place(x=
 cr_exam = ttk.Combobox(Corrections_page, state="readonly")
 cr_exam.place(x=325, y=84, width=95, height=36)
 
-exam_modules = requests.get("https://pfcc-1.onrender.com/api/exam_modules").json()["modules"]
+exam_modules = requests.get("https://pfcc-1.onrender.comgit/api/exam_modules").json()["modules"]
 cr_exam["values"] = exam_modules
 
 tk.Label(Corrections_page, text="Subject :", font=("Arial", 14), bg="white").place(x=24, y=180)
@@ -155,7 +155,7 @@ def handle_save():
         grade = float(cr_entry.get())
         if 0 <= grade <= 20:
             response = requests.post(
-                "https://pfcc-1.onrender.com/api/grades",
+                "https://pfcc-1.onrender.comgit/api/grades",
                 json={"anonymous_id": anonymous_id, "exam_name": exam_name, "correction": correction, "grade": grade, "coeff": coeff}
             )
             if response.status_code == 200:
