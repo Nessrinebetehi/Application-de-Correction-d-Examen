@@ -23,12 +23,12 @@ import mysql.connector
 def get_db_connection():
     try:
         conn = mysql.connector.connect(
-            host=os.getenv("DB_HOST"),  # سيتم تعيينه في Render
-            port=int(os.getenv("DB_PORT", "4000")),  # منفذ TiDB الافتراضي
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", "4000")),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
             database=os.getenv("DB_NAME", "anonymat"),
-            ssl_ca=os.getenv("SSL_CA_PATH", "/app/isrgrootx1.pem"),  # مسار الشهادة
+            ssl_ca=os.getenv("SSL_CA_PATH", "isrgrootx1.pem"),  # تغيير المسار إلى الدليل الجذر
             ssl_verify_cert=True,
             ssl_verify_identity=False
         )
