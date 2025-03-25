@@ -8,6 +8,7 @@ from db_connector import (
     institute_data, calculate_and_export_results,
     save_grade, fetch_exam_modules, fetch_exam_details
 )
+from flask import send_file
 
 app = Flask(__name__)
 
@@ -286,23 +287,13 @@ def get_institute_data():
 # نقطة النهاية لتصدير النتائج إلى ملف Excel
 @app.route('/api/results', methods=['POST'])
 def export_results():
-    """
-    تصدير نتائج المرشحين في قاعة محددة إلى ملف Excel.
-
-    Body:
-        JSON: يحتوي على 'salle_name' (اسم القاعة) و 'language' (Arabic أو English).
-
-    Returns:
-        JSON: رسالة نجاح مع مسار الملف أو رسالة خطأ.
-    """
     data = request.get_json()
     salle_name = data.get('salle_name')
     language = data.get('language')
-
     result = calculate_and_export_results(salle_name, language)
     if result['error']:
         return jsonify({"error": result['error']}), 400
-    return jsonify({"message": "Results exported successfully", "file_path": result['file_path']}), 200
+    return send_file(result['file_path'], as_attachment=True)
 
 # نقطة النهاية لحفظ درجة الطالب
 @app.route('/api/grades', methods=['POST'])

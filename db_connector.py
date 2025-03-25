@@ -157,7 +157,25 @@ def delete_exam(exam_id):
         return {"error": f"❌ خطأ في قاعدة البيانات: {err}", "success": False}
     finally:
         conn.close()
-
+        
+def delete_all_data():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        tables = [
+            "grades", "absences", "students", "professors", "exams", "salles", "institute"
+        ]
+        for table in tables:
+            cursor.execute(f"DELETE FROM {table}")
+        conn.commit()
+        return {"success": True, "error": None}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "error": str(e)}
+    finally:
+        cursor.close()
+        conn.close()
+        
 # Salles Window //////////////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\
 
 def generate_code_salle():

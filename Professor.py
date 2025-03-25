@@ -1,21 +1,19 @@
-#professors.py
 import sys
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import socket
 import qrcode
 import threading
 from PIL import Image, ImageTk
 import requests
-from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details,save_grade,get_db_connection
-
+from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details, save_grade, get_db_connection
 
 # Create the main window
 window = tk.Tk()
 window.title("Professor Window")
 window_width = 800
 window_height = 500
-window.resizable(True, True)  # Allow resizing
+window.resizable(True, True)
 window.configure(bg="#FFFFFF")
 window.geometry(f"{window_width}x{window_height}")
 
@@ -70,36 +68,46 @@ pages["About"] = About_page
 # Correction Page ////////////////////////////////////////////////////////////////////////////////
 def get_correction():
     """Get correction value from command-line arguments passed by on_login()"""
-    if len(sys.argv) < 2:  # Only expecting script name + correction
+    if len(sys.argv) < 2:
         print("Usage: python professor.py <correction>")
-        return 1  # Default value if no argument provided
+        return 1
     try:
-        correction = int(sys.argv[1])  # correction is the first argument after script name
+        correction = int(sys.argv[1])
+        if correction not in [1, 2, 3]:
+            print("Error: <correction> must be 1, 2, or 3")
+            return 1
         return correction
     except ValueError:
         print("Error: <correction> must be an integer (1, 2, or 3)")
-        return 1  # Default value if invalid
+        return 1
 
 # Get correction value
 correction = get_correction()
 
-
 # GUI setup for Corrections page
 tk.Label(Corrections_page, text="Option", font=("Arial", 14), bg="white").place(x=24, y=30)
-
 
 cr_option = ttk.Combobox(Corrections_page, state="readonly")
 cr_option.place(x=135, y=26, width=237, height=36)
 
-options = requests.get("https://pfcc-1.onrender.comgit/api/exam_options").json()["exam_options"]
-cr_option["values"] = options
+def update_options():
+    response = requests.get("https://pfcc.onrender.com/api/exam_options")
+    if response.status_code == 200:
+        options = response.json().get("options", [])
+        cr_option["values"] = options
+        if options:
+            cr_option.current(0)
+        else:
+            cr_option.set("No options available")
+    else:
+        messagebox.showerror("Error", response.json().get("error", "Failed to fetch exam options"))
+    Corrections_page.after(5000, update_options)
 
+update_options()
 
 tk.Label(Corrections_page, text="Anonymat", font=("Arial", 14), bg="white").place(x=24, y=90)
 cr_anonyme_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
 cr_anonyme_entry.place(x=135, y=84, width=114, height=36)
-
-
 
 # Separator line
 separator = tk.Frame(Corrections_page, bg="#D9D9D9", height=2)
@@ -107,24 +115,9 @@ separator.place(x=100, y=155, width=560)
 
 tk.Label(Corrections_page, text="Exam :", font=("Arial", 14, "bold"), bg="white").place(x=24, y=140)
 
-# Store coefficient globally to use in save_grades
-current_coefficient = 0.0
-
-def update_exam_details(event):
-    global current_coefficient
-    selected_exam = cr_exam.get()
-    response = requests.get(f"https://pfcc-1.onrender.comgit/api/exam_details/{selected_exam}")
-    data = response.json()
-    subject_label.config(text=data["subject"])
-    coeff_label.config(text=str(data["coefficient"]))
-    current_coefficient = data["coefficient"]
-
 tk.Label(Corrections_page, text="Exam", font=("Arial", 14), bg="white").place(x=264, y=90)
 cr_exam = ttk.Combobox(Corrections_page, state="readonly")
 cr_exam.place(x=325, y=84, width=95, height=36)
-
-exam_modules = requests.get("https://pfcc-1.onrender.comgit/api/exam_modules").json()["modules"]
-cr_exam["values"] = exam_modules
 
 tk.Label(Corrections_page, text="Subject :", font=("Arial", 14), bg="white").place(x=24, y=180)
 subject_label = tk.Label(Corrections_page, text="", font=("Arial", 14), bg="white")
@@ -134,42 +127,87 @@ tk.Label(Corrections_page, text="Coeffs :", font=("Arial", 14), bg="white").plac
 coeff_label = tk.Label(Corrections_page, text="", font=("Arial", 14), bg="white")
 coeff_label.place(x=490, y=180)
 
+# Store coefficient globally to use in save_grades
+current_coefficient = 0.0
+
+def update_exam_details(event):
+    global current_coefficient
+    selected_exam = cr_exam.get()
+    if not selected_exam:
+        return
+    response = requests.get(f"https://pfcc.onrender.com/api/exam_details/{selected_exam}")
+    if response.status_code == 200:
+        data = response.json()
+        subject_label.config(text=data.get("subject", "N/A"))
+        coeff = data.get("coefficient", 0.0)
+        coeff_label.config(text=str(coeff))
+        current_coefficient = float(coeff)
+    else:
+        messagebox.showerror("Error", response.json().get("error", "Failed to fetch exam details"))
+        subject_label.config(text="N/A")
+        coeff_label.config(text="0.0")
+        current_coefficient = 0.0
+
+def update_exam_modules():
+    response = requests.get("https://pfcc.onrender.com/api/exam_modules")
+    if response.status_code == 200:
+        modules = response.json().get("modules", [])
+        cr_exam["values"] = modules
+        if modules:
+            cr_exam.current(0)
+            update_exam_details(None)
+        else:
+            cr_exam.set("No exams available")
+    else:
+        messagebox.showerror("Error", response.json().get("error", "Failed to fetch exam modules"))
+    Corrections_page.after(5000, update_exam_modules)
+
+# Call update_exam_modules after all labels are defined
+update_exam_modules()
+cr_exam.bind("<<ComboboxSelected>>", update_exam_details)
 
 tk.Label(Corrections_page, text="Correction", font=("Arial", 14), bg="white").place(x=24, y=230)
-cr_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333",
-                      state="normal")
+cr_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333")
 cr_entry.place(x=140, y=225, width=114, height=36)
 
-
-tk.Label(Corrections_page, text="Finale grade", font=("Arial", 14), bg="white").place(x=370, y=230)
+tk.Label(Corrections_page, text="Final grade", font=("Arial", 14), bg="white").place(x=370, y=230)
 cr_grade_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="readonly")
 cr_grade_entry.place(x=490, y=225, width=114, height=36)
 
-
-
 def handle_save():
-    anonymous_id = cr_anonyme_entry.get()
-    exam_name = cr_exam.get()
-    coeff = coeff_label.cget("text")
+    anonymous_id = cr_anonyme_entry.get().strip()
+    exam_name = cr_exam.get().strip()
     try:
         grade = float(cr_entry.get())
-        if 0 <= grade <= 20:
-            response = requests.post(
-                "https://pfcc-1.onrender.comgit/api/grades",
-                json={"anonymous_id": anonymous_id, "exam_name": exam_name, "correction": correction, "grade": grade, "coeff": coeff}
-            )
-            if response.status_code == 200:
-                # جلب الدرجة النهائية من الـ API إذا لزم الأمر
-                cr_grade_entry.config(state="normal")
-                cr_grade_entry.delete(0, tk.END)
-                cr_grade_entry.insert(0, "تم الحفظ")  # يمكن تحسين هذا لجلب الدرجة النهائية
-                cr_grade_entry.config(state="readonly")
-            else:
-                print(response.json()["message"])
+        if not (0 <= grade <= 20):
+            messagebox.showerror("Error", "Grade must be between 0 and 20")
+            return
+        if not anonymous_id or not exam_name:
+            messagebox.showerror("Error", "Please fill in all required fields (Anonymat and Exam)")
+            return
+        response = requests.post(
+            "https://pfcc.onrender.com/api/grades",
+            json={
+                "anonymous_id": anonymous_id,
+                "exam_name": exam_name,
+                "correction": correction,
+                "grade": grade,
+                "coeff": current_coefficient
+            }
+        )
+        if response.status_code == 200:
+            messagebox.showinfo("Success", response.json().get("message", "Grade saved successfully"))
+            cr_grade_entry.config(state="normal")
+            cr_grade_entry.delete(0, tk.END)
+            cr_grade_entry.insert(0, str(grade))  # Display the saved grade
+            cr_grade_entry.config(state="readonly")
+            # Clear input fields
+            cr_anonyme_entry.delete(0, tk.END)
+            cr_entry.delete(0, tk.END)
         else:
-            print("Error: Grade must be between 0 and 20")
+            messagebox.showerror("Error", response.json().get("error", "Failed to save grade"))
     except ValueError:
-        print("Error: Please enter a valid number for the grade")
+        messagebox.showerror("Error", "Please enter a valid number for the grade")
 
 cr_done_btn = tk.Button(Corrections_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=handle_save)
 cr_done_btn.place(relx=0.97, y=290, width=148, height=27, anchor="e")
@@ -179,78 +217,66 @@ def update_entry(data):
     cr_anonyme_entry.insert(0, data)
 
 def start_server():
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind(('0.0.0.0', 5000))
-    server_socket.listen(1)
-    print("Server started, listening on port 5000")
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind(('0.0.0.0', 5000))
+        server_socket.listen(1)
+        print("Server started, listening on port 5000")
 
-    while True:
-        client_socket, address = server_socket.accept()
-        data = client_socket.recv(1024).decode('utf-8')
-        print(f"Received data from {address}: {data}")
+        while True:
+            client_socket, address = server_socket.accept()
+            data = client_socket.recv(1024).decode('utf-8')
+            print(f"Received data from {address}: {data}")
+            window.after(0, update_entry, data)
+            client_socket.close()
+    except Exception as e:
+        print(f"Server error: {e}")
+        messagebox.showerror("Error", f"Failed to start server: {e}")
 
-        window.after(0, update_entry, data)
-
-        client_socket.close()
-
-# Start server and GUI
+# Start server in a separate thread
 threading.Thread(target=start_server, daemon=True).start()
 
 # Function to get local IP address
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))  # Connect to a known external server (Google DNS)
+        s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
         return ip
     except Exception as e:
         print(f"Error getting IP: {e}")
-        return "127.0.0.1"  # Fallback to localhost
+        return "127.0.0.1"
 
 # Function to create and show QR code window
 def show_qr_code():
-    # Get local IP
-        local_ip = get_local_ip()
-        
-        # Create QR code
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(local_ip)
-        qr.make(fit=True)
-        
-        # Generate QR code image
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        
-        # Create a new window
-        qr_window = tk.Toplevel(window)
-        qr_window.title("Mobile App QR Code")
-        qr_window.geometry("300x400")
-        
-        # Add label with instructions
-        instruction_label = tk.Label(qr_window, text="Open application and scan this code", font=("Arial", 12))
-        instruction_label.pack(pady=5)
-        
-        # Convert QR code image to Tkinter-compatible format
-        qr_photo = ImageTk.PhotoImage(qr_img)
-        
-        # Display QR code
-        qr_label = tk.Label(qr_window, image=qr_photo)
-        qr_label.image = qr_photo  # Keep a reference to avoid garbage collection
-        qr_label.pack(pady=10)
-        
-        # Display IP address text
-        ip_label = tk.Label(qr_window, text=f"Local IP: {local_ip}", font=("Arial", 12))
-        ip_label.pack()
-        
+    local_ip = get_local_ip()
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(local_ip)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white")
+    
+    qr_window = tk.Toplevel(window)
+    qr_window.title("Mobile App QR Code")
+    qr_window.geometry("300x400")
+    
+    instruction_label = tk.Label(qr_window, text="Open application and scan this code", font=("Arial", 12))
+    instruction_label.pack(pady=5)
+    
+    qr_photo = ImageTk.PhotoImage(qr_img)
+    qr_label = tk.Label(qr_window, image=qr_photo)
+    qr_label.image = qr_photo
+    qr_label.pack(pady=10)
+    
+    ip_label = tk.Label(qr_window, text=f"Local IP: {local_ip}", font=("Arial", 12))
+    ip_label.pack()
 
-
-# Add Mobile QR button (fixed command parameter)
-mobile_qr = tk.Button(Corrections_page, text="Mobile app", font=("Arial", 14), bg="#5D8BCD", fg="white", bd=0, command=show_qr_code)  # Removed quotes around show_qr_code
+mobile_qr = tk.Button(Corrections_page, text="Mobile app", font=("Arial", 14), bg="#5D8BCD", fg="white", bd=0, command=show_qr_code)
 mobile_qr.place(relx=0.97, y=250, width=148, height=27, anchor="e")
 
 # About Page /////////////////////////////////////////////////////////////////////////////////////
@@ -263,7 +289,7 @@ try:
     logo = logo.resize((80, 80), Image.LANCZOS)
     photo = ImageTk.PhotoImage(logo)
     labellogo = tk.Label(window, image=photo, bg="#FFFFFF")
-    labellogo.image = photo  # Keep a reference to avoid garbage collection
+    labellogo.image = photo
     labellogo.place(relx=1.0, y=8, anchor="ne")
 except FileNotFoundError:
     print("Logo.png not found.")
