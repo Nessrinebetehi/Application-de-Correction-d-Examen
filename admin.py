@@ -18,7 +18,7 @@ from db_connector import get_salle_names,update_salle_comboboxes,get_exam_option
 from db_connector import get_candidates_by_salle,get_all_candidates,import_absences
 from db_connector import fetch_modules, add_professor,get_profs_from_db,delete_professor,send_emails
 from db_connector import institute_data,calculate_and_export_results
-import mysql.connector
+
 
 
 # Create the main window
