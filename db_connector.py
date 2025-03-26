@@ -80,7 +80,7 @@ def insert_exam(candidat_id, module, coefficient):
     إدراج بيانات امتحان جديد في جدول exams.
 
     Args:
-        candidat_id (int): معرف الطالب.
+        candidat_id (int): معرف الطالب (يمكن أن يكون 0 إذا لم يكن مرتبطًا بطالب).
         module (str): اسم المادة.
         coefficient (float): معامل المادة.
 
@@ -96,10 +96,13 @@ def insert_exam(candidat_id, module, coefficient):
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")  # تعطيل التحقق من المفتاح الأجنبي
+            # تعطيل قيود المفتاح الأجنبي
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
+            # إدراج بيانات الامتحان
             sql = "INSERT INTO exams (candidat_id, module_name, coefficient) VALUES (%s, %s, %s)"
             cursor.execute(sql, (candidat_id, module, coefficient))
-            cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")  # إعادة تفعيل التحقق
+            # إعادة تفعيل قيود المفتاح الأجنبي
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
             conn.commit()
             return {"error": None, "success": True}
     except pymysql.Error as err:

@@ -121,7 +121,7 @@ def add_exams_window():
     table.place(x=14, y=92, width=705, height=160)
 
     def load_exams():
-        # استرجاع الامتحانات من API
+        """Load exams from the API and display them in the table"""
         response = requests.get("https://pfcc.onrender.com/api/exam_modules")
         if response.status_code == 200:
             modules = response.json().get("modules", [])
@@ -138,43 +138,43 @@ def add_exams_window():
             messagebox.showerror("Error", response.json().get("error", "Failed to fetch exams"))
 
     def add_item():
+        """Add a new exam using the API and refresh the table"""
         if len(table.get_children()) < num_exams:
             module = module_entry.get().strip()
             coeff = coeff_entry.get().strip()
+
             if module and coeff.replace('.', '', 1).isdigit():
-                # إضافة الامتحان عبر API بدلاً من الدالة المحلية
+                # استخدام نقطة النهاية الجديدة /api/exams
                 response = requests.post(
-                    "https://pfcc.onrender.com/api/grades",
+                    "https://pfcc.onrender.com/api/exams",
                     json={
-                        "anonymous_id": "TEMP",  # قيمة مؤقتة لأننا لا نحتاج طالبًا حقيقيًا هنا
-                        "exam_name": module,
-                        "correction": 1,  # قيمة افتراضية لأننا لا نحتاج تصحيحًا الآن
-                        "grade": 0,  # قيمة افتراضية
-                        "coeff": float(coeff)
+                        "module": module,
+                        "coefficient": float(coeff)
                     }
                 )
                 if response.status_code == 200:
-                    load_exams()  # تحديث الجدول فورًا
+                    load_exams()  # تحديث الجدول بعد الإدراج
                     module_entry.delete(0, tk.END)
                     coeff_entry.delete(0, tk.END)
                 else:
                     messagebox.showerror("Error", response.json().get("error", "Failed to add exam"))
             else:
-                messagebox.showerror("Error", "Please enter a valid Module and Coefficient!")
+                messagebox.showerror("Error", "يرجى إدخال اسم مادة ومعامل صالح!")
         else:
-            messagebox.showerror("Error", f"Cannot add more than {num_exams} exams!")
+            messagebox.showwarning("Warning", f"لا يمكن إضافة أكثر من {num_exams} امتحانات!")
 
     def delete_item():
+        """Delete the selected exam from the database"""
         selected_item = table.selection()
         if selected_item:
-            exam_id = table.item(selected_item[0])["values"][0]
+            exam_id = table.item(selected_item[0])["values"][0]  # استرجاع معرف الامتحان
             result = delete_exam(exam_id)
             if result["success"]:
                 table.delete(selected_item[0])
             else:
-                messagebox.showerror("Error", result["error"])
+                messagebox.showerror("Database Error", result["error"])
         else:
-            messagebox.showwarning("Warning", "Please select an exam to delete.")
+            messagebox.showwarning("Warning", "يرجى اختيار امتحان لحذفه!")
 
     add_button = tk.Button(add_exam_window, text="Add", bg="#00B400", fg="white", command=add_item, width=8, bd=0)
     add_button.place(x=590, y=39, width=91, height=27)

@@ -6,7 +6,7 @@ from db_connector import (
     add_professor, get_profs_from_db, delete_professor, send_emails,
     get_candidates_by_salle, get_all_candidates, import_absences,
     institute_data, calculate_and_export_results,
-    save_grade, fetch_exam_modules, fetch_exam_details
+    save_grade, fetch_exam_modules, fetch_exam_details,insert_exam
 )
 from flask import send_file
 
@@ -118,6 +118,32 @@ def exam_options():
     if result['error']:
         return jsonify({"error": result['error'], "options": []}), 500
     return jsonify({"options": result['data']}), 200
+
+# نقطة النهاية لإضافة امتحان جديد
+@app.route('/api/exams', methods=['POST'])
+def add_exam_endpoint():
+    """
+    إضافة امتحان جديد إلى قاعدة البيانات.
+
+    Body:
+        JSON: يحتوي على 'module' (اسم المادة) و 'coefficient' (المعامل).
+
+    Returns:
+        JSON: رسالة نجاح أو رسالة خطأ.
+    """
+    data = request.get_json()
+    module = data.get('module')
+    coefficient = data.get('coefficient')
+
+    if not module or not isinstance(coefficient, (int, float)):
+        return jsonify({"error": "Module and coefficient (number) are required!"}), 400
+
+    # استخدام قيمة افتراضية لـ candidat_id لأننا لا نحتاج طالبًا في هذه المرحلة
+    result = insert_exam(0, module, coefficient)
+    if result['error']:
+        return jsonify({"error": result['error']}), 400
+    return jsonify({"message": "Exam added successfully"}), 200
+
 
 # نقطة النهاية لاستيراد الطلاب من ملف Excel
 @app.route('/api/students/import', methods=['POST'])
