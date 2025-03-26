@@ -96,10 +96,10 @@ def insert_exam(candidat_id, module, coefficient):
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")  # تعطيل التحقق من المفتاح الأجنبي
             sql = "INSERT INTO exams (candidat_id, module_name, coefficient) VALUES (%s, %s, %s)"
             cursor.execute(sql, (candidat_id, module, coefficient))
-            cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
+            cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")  # إعادة تفعيل التحقق
             conn.commit()
             return {"error": None, "success": True}
     except pymysql.Error as err:

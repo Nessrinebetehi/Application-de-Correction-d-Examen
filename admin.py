@@ -121,6 +121,7 @@ def add_exams_window():
     table.place(x=14, y=92, width=705, height=160)
 
     def load_exams():
+        # استرجاع الامتحانات من API
         response = requests.get("https://pfcc.onrender.com/api/exam_modules")
         if response.status_code == 200:
             modules = response.json().get("modules", [])
@@ -141,14 +142,23 @@ def add_exams_window():
             module = module_entry.get().strip()
             coeff = coeff_entry.get().strip()
             if module and coeff.replace('.', '', 1).isdigit():
-                # Pass a placeholder candidat_id (0) since this exam is not yet associated with a candidate
-                result = insert_exam(0, module, float(coeff))
-                if result["success"]:
-                    load_exams()
+                # إضافة الامتحان عبر API بدلاً من الدالة المحلية
+                response = requests.post(
+                    "https://pfcc.onrender.com/api/grades",
+                    json={
+                        "anonymous_id": "TEMP",  # قيمة مؤقتة لأننا لا نحتاج طالبًا حقيقيًا هنا
+                        "exam_name": module,
+                        "correction": 1,  # قيمة افتراضية لأننا لا نحتاج تصحيحًا الآن
+                        "grade": 0,  # قيمة افتراضية
+                        "coeff": float(coeff)
+                    }
+                )
+                if response.status_code == 200:
+                    load_exams()  # تحديث الجدول فورًا
                     module_entry.delete(0, tk.END)
                     coeff_entry.delete(0, tk.END)
                 else:
-                    messagebox.showerror("Error", result["error"])
+                    messagebox.showerror("Error", response.json().get("error", "Failed to add exam"))
             else:
                 messagebox.showerror("Error", "Please enter a valid Module and Coefficient!")
         else:
