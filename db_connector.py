@@ -163,18 +163,19 @@ def delete_exam(exam_id):
         
 def delete_all_data():
     conn = get_db_connection()
+    if conn is None:
+        return {"success": False, "error": "❌ فشل الاتصال بقاعدة البيانات!"}
+    
     cursor = conn.cursor()
     try:
-        tables = [
-            "grades", "absences", "students", "professors", "exams", "salles", "institute"
-        ]
+        tables = ["professors", "institutes", "salles", "candidats", "exams"]
         for table in tables:
             cursor.execute(f"DELETE FROM {table}")
         conn.commit()
         return {"success": True, "error": None}
     except Exception as e:
         conn.rollback()
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": f"❌ خطأ أثناء حذف البيانات: {str(e)}"}
     finally:
         cursor.close()
         conn.close()

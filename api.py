@@ -357,7 +357,7 @@ def remove_exam(exam_id):
 @app.route('/api/data', methods=['DELETE'])
 def delete_all():
     """
-    حذف جميع البيانات من جداول قاعدة البيانات (grades, absences, students, professors, exams, salles, institute).
+    حذف جميع البيانات من جداول قاعدة البيانات (professors, institutes, salles, candidats, exams).
 
     Returns:
         JSON: رسالة نجاح أو رسالة خطأ.
