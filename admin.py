@@ -9,10 +9,6 @@ import os
 import qrcode
 import requests
 from datetime import date
-from db_connector import (
-    op_save_data, insert_exam, get_exams, delete_exam, delete_all_data,
-
-)
 
 # Create the main window
 window = tk.Tk()
@@ -144,16 +140,12 @@ def add_exams_window():
             coeff = coeff_entry.get().strip()
 
             if module and coeff.replace('.', '', 1).isdigit():
-                # استخدام نقطة النهاية الجديدة /api/exams
                 response = requests.post(
                     "https://pfcc.onrender.com/api/exams",
-                    json={
-                        "module": module,
-                        "coefficient": float(coeff)
-                    }
+                    json={"module": module, "coefficient": float(coeff)}
                 )
                 if response.status_code == 200:
-                    load_exams()  # تحديث الجدول بعد الإدراج
+                    load_exams()  # Refresh table after insertion
                     module_entry.delete(0, tk.END)
                     coeff_entry.delete(0, tk.END)
                 else:
@@ -164,15 +156,15 @@ def add_exams_window():
             messagebox.showwarning("Warning", f"لا يمكن إضافة أكثر من {num_exams} امتحانات!")
 
     def delete_item():
-        """Delete the selected exam from the database"""
+        """Delete the selected exam using the API"""
         selected_item = table.selection()
         if selected_item:
-            exam_id = table.item(selected_item[0])["values"][0]  # استرجاع معرف الامتحان
-            result = delete_exam(exam_id)
-            if result["success"]:
+            exam_id = table.item(selected_item[0])["values"][0]
+            response = requests.delete(f"https://pfcc.onrender.com/api/exams/{exam_id}")
+            if response.status_code == 200:
                 table.delete(selected_item[0])
             else:
-                messagebox.showerror("Database Error", result["error"])
+                messagebox.showerror("Error", response.json().get("error", "Failed to delete exam"))
         else:
             messagebox.showwarning("Warning", "يرجى اختيار امتحان لحذفه!")
 
@@ -281,15 +273,18 @@ def on_save():
     if not institute_name or not exam_option or not name_post or not nbr_exams:
         messagebox.showerror("Error", "Please fill in all required fields.")
         return
-    result = op_save_data(institute_name, exam_option, name_post, int(nbr_exams))
-    if result["success"]:
-        messagebox.showinfo("Success", "Institute data saved successfully")
+    response = requests.post(
+        "https://pfcc.onrender.com/api/institutes",
+        json={"institute_name": institute_name, "exam_option": exam_option, "name_post": name_post, "nbr_exams": int(nbr_exams)}
+    )
+    if response.status_code == 200:
+        messagebox.showinfo("Success", response.json().get("message", "Institute data saved successfully"))
         institute_entry.delete(0, tk.END)
         option_entry.delete(0, tk.END)
         name_post_entry.delete(0, tk.END)
         nbr_exams_combobox.current(0)
     else:
-        messagebox.showerror("Error", result["error"])
+        messagebox.showerror("Error", response.json().get("error", "Failed to save data"))
 
 def show_delete_confirmation():
     confirm_window = tk.Toplevel(window)
@@ -304,11 +299,11 @@ def show_delete_confirmation():
 
     def confirm_delete():
         if entry.get().strip().upper() == "YES":
-            result = delete_all_data()
-            if result["success"]:
-                messagebox.showinfo("Success", "All data deleted successfully")
+            response = requests.delete("https://pfcc.onrender.com/api/data")
+            if response.status_code == 200:
+                messagebox.showinfo("Success", response.json().get("message", "All data deleted successfully"))
             else:
-                messagebox.showerror("Error", result["error"])
+                messagebox.showerror("Error", response.json().get("error", "Failed to delete data"))
             confirm_window.destroy()
         else:
             messagebox.showerror("Error", "Please type 'YES' to confirm")
@@ -651,8 +646,11 @@ def export_results():
         json={"salle_name": salle_name, "language": language}
     )
     if response.status_code == 200:
-        data = response.json()
-        messagebox.showinfo("Success", f"{data.get('message', 'Results exported successfully')}\nFile saved at: {data.get('file_path', 'N/A')}")
+        file_path = asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+        if file_path:
+            with open(file_path, 'wb') as f:
+                f.write(response.content)
+            messagebox.showinfo("Success", f"Results exported successfully\nFile saved at: {file_path}")
     else:
         messagebox.showerror("Error", response.json().get("error", "Failed to export results"))
 

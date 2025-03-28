@@ -6,7 +6,8 @@ from db_connector import (
     add_professor, get_profs_from_db, delete_professor, send_emails,
     get_candidates_by_salle, get_all_candidates, import_absences,
     institute_data, calculate_and_export_results,
-    save_grade, fetch_exam_modules, fetch_exam_details,insert_exam
+    save_grade, fetch_exam_modules, fetch_exam_details, insert_exam,
+    op_save_data, delete_exam, delete_all_data  # New imports added
 )
 from flask import send_file
 
@@ -143,7 +144,6 @@ def add_exam_endpoint():
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Exam added successfully"}), 200
-
 
 # نقطة النهاية لاستيراد الطلاب من ملف Excel
 @app.route('/api/students/import', methods=['POST'])
@@ -310,9 +310,75 @@ def get_institute_data():
     name_post, nbr_exams = result['data']
     return jsonify({"name_post": name_post, "nbr_exams": nbr_exams}), 200
 
+# نقطة النهاية لحفظ بيانات المعهد (op_save_data)
+@app.route('/api/institutes', methods=['POST'])
+def save_institute_data():
+    """
+    حفظ بيانات المعهد في قاعدة البيانات.
+
+    Body:
+        JSON: يحتوي على 'institute_name', 'exam_option', 'name_post', و 'nbr_exams'.
+
+    Returns:
+        JSON: رسالة نجاح أو رسالة خطأ.
+    """
+    data = request.get_json()
+    institute_name = data.get('institute_name')
+    exam_option = data.get('exam_option')
+    name_post = data.get('name_post')
+    nbr_exams = data.get('nbr_exams')
+
+    if not all([institute_name, exam_option, name_post]) or not isinstance(nbr_exams, int):
+        return jsonify({"error": "All fields (institute_name, exam_option, name_post, nbr_exams) are required and nbr_exams must be an integer!"}), 400
+
+    result = op_save_data(institute_name, exam_option, name_post, nbr_exams)
+    if "❌" in result:
+        return jsonify({"error": result}), 400
+    return jsonify({"message": result}), 200
+
+# نقطة النهاية لحذف امتحان (delete_exam)
+@app.route('/api/exams/<int:exam_id>', methods=['DELETE'])
+def remove_exam(exam_id):
+    """
+    حذف امتحان من قاعدة البيانات بناءً على معرفه.
+
+    Args:
+        exam_id (int): معرف الامتحان.
+
+    Returns:
+        JSON: رسالة نجاح أو رسالة خطأ.
+    """
+    result = delete_exam(exam_id)
+    if result['error']:
+        return jsonify({"error": result['error']}), 400
+    return jsonify({"message": "Exam deleted successfully"}), 200
+
+# نقطة النهاية لحذف جميع البيانات (delete_all_data)
+@app.route('/api/data', methods=['DELETE'])
+def delete_all():
+    """
+    حذف جميع البيانات من جداول قاعدة البيانات (grades, absences, students, professors, exams, salles, institute).
+
+    Returns:
+        JSON: رسالة نجاح أو رسالة خطأ.
+    """
+    result = delete_all_data()
+    if result['error']:
+        return jsonify({"error": result['error']}), 400
+    return jsonify({"message": "All data deleted successfully"}), 200
+
 # نقطة النهاية لتصدير النتائج إلى ملف Excel
 @app.route('/api/results', methods=['POST'])
 def export_results():
+    """
+    تصدير النتائج إلى ملف Excel بناءً على اسم القاعة واللغة.
+
+    Body:
+        JSON: يحتوي على 'salle_name' و 'language'.
+
+    Returns:
+        File: ملف Excel أو رسالة خطأ.
+    """
     data = request.get_json()
     salle_name = data.get('salle_name')
     language = data.get('language')

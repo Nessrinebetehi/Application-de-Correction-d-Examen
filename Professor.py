@@ -6,7 +6,7 @@ import qrcode
 import threading
 from PIL import Image, ImageTk
 import requests
-from db_connector import get_exam_options, fetch_exam_modules, fetch_exam_details, save_grade, get_db_connection
+
 
 # Create the main window
 window = tk.Tk()
