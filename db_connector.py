@@ -432,6 +432,7 @@ def import_students_from_excel(file_path):
 
         # Sort students alphabetically by Name and Surname
         df = df.sort_values(by=["Name", "Surname"])
+        print("البيانات بعد الترتيب:", df)  # طباعة للتحقق
 
         # Connect to the database
         conn = get_db_connection()
@@ -446,21 +447,38 @@ def import_students_from_excel(file_path):
                     FROM salles 
                     ORDER BY name_salle
                 """)
-                salles = cursor.fetchall()  # List of tuples (name_salle, capacity)
+                salles = cursor.fetchall()
+                print("محتوى salles:", salles)  # طباعة للتحقق
+
                 if not salles:
                     return {"error": "❌ No salles found in the database!", "success": False}
 
                 # Track remaining capacity for each salle
-                salle_capacity = {salle[0]: salle[1] for salle in salles}
-                salle_current_count = {salle[0]: 0 for salle in salles}
+                salle_capacity = {}
+                salle_current_count = {}
+                for salle in salles:
+                    if isinstance(salle, dict):
+                        # إذا كانت النتيجة قاموسًا
+                        name = salle['name_salle']
+                        capacity = salle['capacity']
+                    else:
+                        # إذا كانت النتيجة توبلًا
+                        name = salle[0]
+                        capacity = salle[1]
+                    salle_capacity[name] = capacity
+                    salle_current_count[name] = 0
+
+                print("سعة القاعات:", salle_capacity)  # طباعة للتحقق
+
+                salle_names = list(salle_capacity.keys())
                 salle_index = 0
 
                 # Assign students to salles
                 for _, row in df.iterrows():
                     if pd.notnull(row["Name"]) and pd.notnull(row["Surname"]) and pd.notnull(row["Birthday"]):
                         # Find a salle with available capacity
-                        while salle_index < len(salles):
-                            current_salle = salles[salle_index][0]
+                        while salle_index < len(salle_names):
+                            current_salle = salle_names[salle_index]
                             if salle_current_count[current_salle] < salle_capacity[current_salle]:
                                 # Assign student to this salle
                                 anonymous_id = generate_anonymous_id()
@@ -476,7 +494,7 @@ def import_students_from_excel(file_path):
                             else:
                                 salle_index += 1  # Move to the next salle
 
-                        if salle_index >= len(salles):
+                        if salle_index >= len(salle_names):
                             return {"error": "❌ Insufficient salle capacity to accommodate all students!", "success": False}
 
                 conn.commit()
