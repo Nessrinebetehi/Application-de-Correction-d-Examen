@@ -408,46 +408,86 @@ def save_student(name, surname, dob, salle_code, exam_option):
 
 def import_students_from_excel(file_path):
     """
-    استيراد بيانات الطلاب من ملف Excel وإضافتها إلى جدول candidats.
+    Import student data from an Excel file, assign them to salles alphabetically,
+    and respect salle capacity.
 
     Args:
-        file_path (str): مسار ملف Excel.
+        file_path (str): Path to the Excel file.
 
     Returns:
-        dict: قاموس يحتوي على 'error' (رسالة الخطأ أو None) و 'success' (True/False).
+        dict: Dictionary with 'error' (message or None) and 'success' (True/False).
     """
     if not os.path.exists(file_path):
-        return {"error": "❌ الملف غير موجود!", "success": False}
+        return {"error": "❌ File does not exist!", "success": False}
 
     try:
+        # Read Excel file
         df = pd.read_excel(file_path)
-        required_columns = {"Name", "Surname", "Birthday", "Salle Name", "Exam Option"}
+        required_columns = {"Name", "Surname", "Birthday", "Exam Option"}
         if not required_columns.issubset(df.columns):
-            return {"error": "❌ ملف Excel يجب أن يحتوي على الأعمدة: Name, Surname, Birthday, Salle Name, Exam Option", "success": False}
+            return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
 
+        # Convert Birthday to proper date format
         df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce').dt.strftime('%Y-%m-%d')
 
+        # Sort students alphabetically by Name and Surname
+        df = df.sort_values(by=["Name", "Surname"])
+
+        # Connect to the database
         conn = get_db_connection()
         if conn is None:
-            return {"error": "❌ فشل الاتصال بقاعدة البيانات!", "success": False}
+            return {"error": "❌ Database connection failed!", "success": False}
 
         try:
             with conn.cursor() as cursor:
+                # Fetch all salles with their capacities
+                cursor.execute("""
+                    SELECT name_salle, capacity 
+                    FROM salles 
+                    ORDER BY name_salle
+                """)
+                salles = cursor.fetchall()  # List of tuples (name_salle, capacity)
+                if not salles:
+                    return {"error": "❌ No salles found in the database!", "success": False}
+
+                # Track remaining capacity for each salle
+                salle_capacity = {salle[0]: salle[1] for salle in salles}
+                salle_current_count = {salle[0]: 0 for salle in salles}
+                salle_index = 0
+
+                # Assign students to salles
                 for _, row in df.iterrows():
                     if pd.notnull(row["Name"]) and pd.notnull(row["Surname"]) and pd.notnull(row["Birthday"]):
-                        anonymous_id = generate_anonymous_id()
-                        cursor.execute(
-                            "INSERT INTO candidats (name, surname, birthday, anonymous_id, moyen, decision, absence, salle_name) "
-                            "VALUES (%s, %s, %s, %s, 10.00, 'Pending', 0, %s)",
-                            (row["Name"], row["Surname"], row["Birthday"], anonymous_id, row["Salle Name"])
-                        )
+                        # Find a salle with available capacity
+                        while salle_index < len(salles):
+                            current_salle = salles[salle_index][0]
+                            if salle_current_count[current_salle] < salle_capacity[current_salle]:
+                                # Assign student to this salle
+                                anonymous_id = generate_anonymous_id()
+                                cursor.execute(
+                                    """
+                                    INSERT INTO candidats (name, surname, birthday, anonymous_id, moyen, decision, absence, salle_name)
+                                    VALUES (%s, %s, %s, %s, 10.00, 'Pending', 0, %s)
+                                    """,
+                                    (row["Name"], row["Surname"], row["Birthday"], anonymous_id, current_salle)
+                                )
+                                salle_current_count[current_salle] += 1
+                                break
+                            else:
+                                salle_index += 1  # Move to the next salle
+
+                        if salle_index >= len(salles):
+                            return {"error": "❌ Insufficient salle capacity to accommodate all students!", "success": False}
+
                 conn.commit()
                 return {"error": None, "success": True}
+
         finally:
             conn.close()
+
     except Exception as e:
         print(f"❌ Error in import_students_from_excel: {e}")
-        return {"error": f"❌ خطأ أثناء الاستيراد: {str(e)}", "success": False}
+        return {"error": f"❌ Import error: {str(e)}", "success": False}
 
 # Prof Page //////////////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\
 

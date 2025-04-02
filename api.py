@@ -148,15 +148,6 @@ def add_exam_endpoint():
 # نقطة النهاية لاستيراد الطلاب من ملف Excel
 @app.route('/api/students/import', methods=['POST'])
 def import_students():
-    """
-    استيراد بيانات الطلاب من ملف Excel.
-
-    Body:
-        FormData: يحتوي على ملف Excel ('file').
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     file = request.files.get('file')
     if not file:
         return jsonify({"error": "No file uploaded"}), 400
