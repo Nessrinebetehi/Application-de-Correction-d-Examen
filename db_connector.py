@@ -428,7 +428,7 @@ def import_students_from_excel(file_path):
             return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
 
         # Convert Birthday to proper date format
-        df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce').dt.strftime('%Y-%m-%d')
+        df["Birthday"] = pd.to_datetime(df["Birthday"], format='%d-%m-%Y', errors='coerce').dt.strftime('%Y-%m-%d')
 
         # Sort students alphabetically by Name and Surname
         df = df.sort_values(by=["Name", "Surname"])
