@@ -486,7 +486,9 @@ def import_students_from_excel(file_path):
             conn.close()
 
     except Exception as e:
+        import traceback
         print(f"❌ Error in import_students_from_excel: {e}")
+        traceback.print_exc()  # يطبع التتبع الكامل للخطأ
         return {"error": f"❌ Import error: {str(e)}", "success": False}
 
 # Prof Page //////////////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\
