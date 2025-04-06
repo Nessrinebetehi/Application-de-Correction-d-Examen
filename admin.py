@@ -13,6 +13,7 @@ from datetime import date
 # Create the main window
 window = tk.Tk()
 window.title("Admin window")
+window.iconbitmap('app-icon.png')
 
 # Set window size and configuration
 window_width = 800
@@ -90,6 +91,7 @@ def add_exams_window():
 
     add_exam_window = tk.Toplevel(window)
     add_exam_window.title("Add Exam")
+    add_exam_window.iconbitmap('app-icon.png')
     add_exam_window.geometry("730x320")
     add_exam_window.configure(bg="white")
     add_exam_window.resizable(False, False)
@@ -186,6 +188,7 @@ add_exams_btn.place(x=190, y=230, width=148, height=27)
 def add_salles_window():
     add_salle_window = tk.Toplevel()
     add_salle_window.title("Add Salles")
+    add_salle_window.iconbitmap('app-icon.png')
     add_salle_window.geometry("730x320")
     add_salle_window.configure(bg="white")
     add_salle_window.resizable(False, False)

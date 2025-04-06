@@ -11,6 +11,7 @@ import requests
 # Create the main window
 window = tk.Tk()
 window.title("Professor Window")
+window.iconbitmap('app-icon.png')
 window_width = 800
 window_height = 500
 window.resizable(True, True)
@@ -263,6 +264,7 @@ def show_qr_code():
     
     qr_window = tk.Toplevel(window)
     qr_window.title("Mobile App QR Code")
+    qr_window.iconbitmap('app-icon.png')
     qr_window.geometry("300x400")
     
     instruction_label = tk.Label(qr_window, text="Open application and scan this code", font=("Arial", 12))
