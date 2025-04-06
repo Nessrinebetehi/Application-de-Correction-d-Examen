@@ -635,8 +635,8 @@ def send_emails():
     Returns:
         dict: Dictionary containing 'error' (error message or None) and 'success' (True/False).
     """
-    SENDER_EMAIL = os.getenv("SENDER_EMAIL", "temouchentpfc@gmail.com")
-    SENDER_PASSWORD = os.getenv("SENDER_PASSWORD", "xrgg eqlu qkji tdcc")
+    SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+    SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
     SMTP_SERVER = "smtp.gmail.com"
     SMTP_PORT = 587
 
