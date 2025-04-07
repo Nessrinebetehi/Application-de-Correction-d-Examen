@@ -7,7 +7,7 @@ from db_connector import (
     get_candidates_by_salle, get_all_candidates, import_absences,
     institute_data, calculate_and_export_results,
     save_grade, fetch_exam_modules, fetch_exam_details, insert_exam,
-    op_save_data, delete_exam, delete_all_data,execute_query # New imports added
+    op_save_data, delete_exam, delete_all_data,check_login  # New imports added
 )
 from flask import send_file
 
@@ -31,22 +31,11 @@ def login():
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
 
-    # Check responsables table
-    responsable_query = "SELECT * FROM responsables WHERE email = %s AND password = %s"
-    responsable_result = execute_query(responsable_query, (email, password))
-    
-    if responsable_result and len(responsable_result) > 0:
-        return jsonify({"role": "responsable"}), 200
+    result = check_login(email, password)
+    if result['error']:
+        return jsonify({"error": result['error']}), 401
+    return jsonify({"role": result['role'], "correction": result['correction']}), 200
 
-    # Check professors table
-    professor_query = "SELECT correction FROM professors WHERE email = %s AND password = %s"
-    professor_result = execute_query(professor_query, (email, password))
-    
-    if professor_result and len(professor_result) > 0:
-        correction = professor_result[0][0]  # Assuming correction is the first column
-        return jsonify({"role": "professor", "correction": correction}), 200
-
-    return jsonify({"error": "Invalid email or password"}), 401
 
 # نقطة النهاية لاسترجاع جميع القاعات
 @app.route('/api/salles', methods=['GET'])

@@ -77,7 +77,7 @@ def on_login():
                 if role == "responsable":
                     subprocess.run(["python", "admin.py"], check=True)
                 elif role == "professor":
-                    correction_number = data.get("correction", 1)  # Default to 1 if not provided
+                    correction_number = data.get("correction", 1)
                     subprocess.run(["python", "professors.py", str(correction_number)], check=True)
                 else:
                     messagebox.showerror("Error", "Unauthorized access.")

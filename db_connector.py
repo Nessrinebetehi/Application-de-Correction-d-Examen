@@ -30,7 +30,41 @@ def get_db_connection():
     except pymysql.Error as err:
         print(f"❌ Database Connection Error: {err}")
         return None
+    
+def check_login(email, password):
+    """
+    Check user credentials against responsables and professors tables.
 
+    Args:
+        email (str): User's email.
+        password (str): User's password.
+
+    Returns:
+        dict: Dictionary with 'role', 'correction' (if professor), and 'error'.
+    """
+    conn = get_db_connection()
+    if conn is None:
+        return {"error": "❌ Failed to connect to the database!", "role": None, "correction": None}
+
+    try:
+        with conn.cursor() as cursor:
+            # Check responsables
+            cursor.execute("SELECT * FROM responsables WHERE email = %s AND password = %s", (email, password))
+            if cursor.fetchone():
+                return {"error": None, "role": "responsable", "correction": None}
+
+            # Check professors
+            cursor.execute("SELECT correction FROM professors WHERE email = %s AND password = %s", (email, password))
+            result = cursor.fetchone()
+            if result:
+                return {"error": None, "role": "professor", "correction": result['correction']}
+
+            return {"error": "❌ Invalid email or password!", "role": None, "correction": None}
+    except pymysql.Error as err:
+        print(f"❌ Database Error in check_login: {err}")
+        return {"error": f"❌ Database error: {err}", "role": None, "correction": None}
+    finally:
+        conn.close()
 # Option Page //////////////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\
 
 def op_save_data(institute_name, exam_option, name_post, nbr_exams):
