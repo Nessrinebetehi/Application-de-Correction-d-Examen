@@ -7,7 +7,7 @@ from db_connector import (
     get_candidates_by_salle, get_all_candidates, import_absences,
     institute_data, calculate_and_export_results,
     save_grade, fetch_exam_modules, fetch_exam_details, insert_exam,
-    op_save_data, delete_exam, delete_all_data  # New imports added
+    op_save_data, delete_exam, delete_all_data,execute_query # New imports added
 )
 from flask import send_file
 
@@ -15,10 +15,38 @@ app = Flask(__name__)
 
 @app.route('/api/login', methods=['POST'])
 def login():
+    """
+    Authenticate a user and return their role.
+
+    Body:
+        JSON: Contains 'email' and 'password'.
+
+    Returns:
+        JSON: Role and additional data (e.g., correction for professors) or error message.
+    """
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
 
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    # Check responsables table
+    responsable_query = "SELECT * FROM responsables WHERE email = %s AND password = %s"
+    responsable_result = execute_query(responsable_query, (email, password))
+    
+    if responsable_result and len(responsable_result) > 0:
+        return jsonify({"role": "responsable"}), 200
+
+    # Check professors table
+    professor_query = "SELECT correction FROM professors WHERE email = %s AND password = %s"
+    professor_result = execute_query(professor_query, (email, password))
+    
+    if professor_result and len(professor_result) > 0:
+        correction = professor_result[0][0]  # Assuming correction is the first column
+        return jsonify({"role": "professor", "correction": correction}), 200
+
+    return jsonify({"error": "Invalid email or password"}), 401
 
 # نقطة النهاية لاسترجاع جميع القاعات
 @app.route('/api/salles', methods=['GET'])

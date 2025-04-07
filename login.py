@@ -63,7 +63,6 @@ def on_login():
         return
 
     try:
-        # إرسال طلب إلى API للتحقق من تسجيل الدخول
         response = requests.post(
             "https://pfcc.onrender.com/api/login",
             json={"email": email, "password": password}
