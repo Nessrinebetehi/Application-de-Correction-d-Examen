@@ -71,14 +71,13 @@ def on_login():
 
         if response.status_code == 200 and "role" in data:
             role = data["role"]
-            messagebox.showinfo("Success", f"Login successful! Welcome, {role.capitalize()}.")
             window.destroy()
             try:
                 if role == "responsable":
                     subprocess.run(["python", "admin.py"], check=True)
                 elif role == "professor":
                     correction_number = data.get("correction", 1)
-                    subprocess.run(["python", "professors.py", str(correction_number)], check=True)
+                    subprocess.run(["python", "Professor.py", str(correction_number)], check=True)
                 else:
                     messagebox.showerror("Error", "Unauthorized access.")
             except subprocess.CalledProcessError as e:
