@@ -13,6 +13,13 @@ from flask import send_file
 
 app = Flask(__name__)
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+
+
 # نقطة النهاية لاسترجاع جميع القاعات
 @app.route('/api/salles', methods=['GET'])
 def list_salles():
