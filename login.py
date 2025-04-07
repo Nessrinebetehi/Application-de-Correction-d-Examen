@@ -7,7 +7,7 @@ import requests
 # إنشاء النافذة
 window = tk.Tk()
 window.title("Login")
-window.iconbitmap('app-icon.png')
+window.iconbitmap("favicon.ico")
 window_width = 800
 window_height = 500
 window.resizable(False, False)

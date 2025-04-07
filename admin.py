@@ -13,7 +13,7 @@ from datetime import date
 # Create the main window
 window = tk.Tk()
 window.title("Admin window")
-window.iconbitmap('app-icon.png')
+window.iconbitmap("favicon.ico")
 
 # Set window size and configuration
 window_width = 800
@@ -91,7 +91,7 @@ def add_exams_window():
 
     add_exam_window = tk.Toplevel(window)
     add_exam_window.title("Add Exam")
-    add_exam_window.iconbitmap('app-icon.png')
+    add_exam_window.iconbitmap("favicon.ico")
     add_exam_window.geometry("730x320")
     add_exam_window.configure(bg="white")
     add_exam_window.resizable(False, False)
@@ -188,7 +188,7 @@ add_exams_btn.place(x=190, y=230, width=148, height=27)
 def add_salles_window():
     add_salle_window = tk.Toplevel()
     add_salle_window.title("Add Salles")
-    add_salle_window.iconbitmap('app-icon.png')
+    add_salle_window.iconbitmap("favicon.ico")
     add_salle_window.geometry("730x320")
     add_salle_window.configure(bg="white")
     add_salle_window.resizable(False, False)
@@ -449,6 +449,7 @@ send_emails_btn.place(relx=0.9, y=305, width=148, height=27, anchor="e")
 def add_prof_window():
     add_prof_window = tk.Toplevel()
     add_prof_window.title("Add Professors")
+    add_prof_window.iconbitmap("favicon.ico")
     add_prof_window.geometry("800x340")
     add_prof_window.configure(bg="white")
     add_prof_window.resizable(False, False)
