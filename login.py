@@ -1,13 +1,23 @@
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
-import subprocess
 import requests
+import os
+import sys
+import admin  # استيراد admin.py
+import Professor  # استيراد Professor.py
 
 # إنشاء النافذة
 window = tk.Tk()
 window.title("Login")
-window.iconbitmap("favicon.ico")
+
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.abspath(".")
+
+ICON_PATH = os.path.join(base_path, "favicon.ico")
+window.wm_iconbitmap(ICON_PATH)
 window_width = 800
 window_height = 500
 window.resizable(False, False)
@@ -21,22 +31,28 @@ x_position = int((screen_width - window_width) / 2)
 y_position = int((screen_height - window_height) / 2)
 window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
-# تحميل الصور
+# المسارات إلى الصور
+BACKGROUND_PATH = os.path.join(base_path, "background.png")
+LOGO_PATH = os.path.join(base_path, "logo.png")
+
+# تحميل الصور مع معالجة الاستثناءات
 try:
-    bg_img = Image.open("background.png")
+    bg_img = Image.open(BACKGROUND_PATH)
     photo = ImageTk.PhotoImage(bg_img)
     label1 = tk.Label(window, image=photo)
+    label1.image = photo
     label1.place(x=-5, y=0)
 except FileNotFoundError:
     print("background.png not found.")
 
 try:
-    logo = Image.open("Logo.png")
+    logo = Image.open(LOGO_PATH)
     photo2 = ImageTk.PhotoImage(logo)
     label2 = tk.Label(window, image=photo2)
+    label2.image = photo2
     label2.place(x=319, y=12)
 except FileNotFoundError:
-    print("Logo.png not found.")
+    print("logo.png not found.")
 
 # إضافة عناصر الإدخال
 Login = tk.Label(window, text="Profil Login", font=("Arial", 20, "bold"), bg="#FBFBFB", fg="#333333")
@@ -71,19 +87,16 @@ def on_login():
 
         if response.status_code == 200 and "role" in data:
             role = data["role"]
-            window.destroy()
-            try:
-                if role == "responsable":
-                    subprocess.run(["python", "admin.py"], check=True)
-                elif role == "professor":
-                    correction_number = data.get("correction", 1)
-                    subprocess.run(["python", "Professor.py", str(correction_number)], check=True)
-                else:
-                    messagebox.showerror("Error", "Unauthorized access.")
-            except subprocess.CalledProcessError as e:
-                messagebox.showerror("Error", f"Failed to launch application: {e}")
-            except FileNotFoundError as e:
-                messagebox.showerror("Error", f"Application file not found: {e}")
+            window.destroy()  # إغلاق نافذة تسجيل الدخول
+            if role == "responsable":
+                admin_window = admin.create_admin_window()  # استدعاء واجهة admin
+                admin_window.mainloop()
+            elif role == "professor":
+                correction_number = data.get("correction", 1)
+                professor_window = Professor.create_professor_window(correction_number)  # استدعاء واجهة Professor
+                professor_window.mainloop()
+            else:
+                messagebox.showerror("Error", "Unauthorized access.")
         else:
             messagebox.showerror("Error", data.get("error", "Invalid email or password."))
 
