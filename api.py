@@ -16,13 +16,6 @@ app = Flask(__name__)
 @app.route('/api/login', methods=['POST'])
 def login():
     """
-    Authenticate a user and return their role.
-
-    Body:
-        JSON: Contains 'email' and 'password'.
-
-    Returns:
-        JSON: Role and additional data (e.g., correction for professors) or error message.
     """
     data = request.get_json()
     email = data.get('email')

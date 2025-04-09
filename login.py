@@ -7,6 +7,16 @@ import sys
 import admin  # استيراد admin.py
 import Professor  # استيراد Professor.py
 
+
+if getattr(sys, 'frozen', False):
+    # إذا كان التطبيق مجمعاً (exe)
+    base_path = sys._MEIPASS
+else:
+    # إذا كان التطبيق يعمل كسكربت Python عادي
+    base_path = os.path.abspath(".")
+
+cert_path = os.path.join(base_path, "certifi", "cacert.pem")
+
 # إنشاء النافذة
 window = tk.Tk()
 window.title("Login")
@@ -79,10 +89,7 @@ def on_login():
         return
 
     try:
-        response = requests.post(
-            "https://pfcc.onrender.com/api/login",
-            json={"email": email, "password": password}
-        )
+        response = requests.post("https://pfcc.onrender.com/api/login", json={"email": email, "password": password}, verify=cert_path)
         data = response.json()
 
         if response.status_code == 200 and "role" in data:
