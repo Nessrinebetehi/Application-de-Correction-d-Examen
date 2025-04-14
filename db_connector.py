@@ -2,6 +2,7 @@ import secrets
 import pymysql
 import pandas as pd
 import os
+import traceback
 import random
 import string
 import smtplib
@@ -425,7 +426,7 @@ def save_student(name, surname, dob, salle_code, exam_option):
 
 def import_students_from_excel(file_path):
     """
-    Import student data from an Excel file, assign them to salles alphabetically,
+    Import student data from an Excel file, assign them to salles as specified,
     and respect salle capacity.
 
     Args:
@@ -440,16 +441,21 @@ def import_students_from_excel(file_path):
     try:
         # Read Excel file
         df = pd.read_excel(file_path)
-        required_columns = {"Name", "Surname", "Birthday", "Exam Option"}
+        required_columns = {"Name", "Surname", "Birthday", "Salle", "Exam Option"}
         if not required_columns.issubset(df.columns):
-            return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
+            return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Salle, Exam Option", "success": False}
 
         # Convert Birthday to proper date format
         df["Birthday"] = pd.to_datetime(df["Birthday"], format='%d-%m-%Y', errors='coerce').dt.strftime('%Y-%m-%d')
+        if df["Birthday"].isna().any():
+            return {"error": "❌ Invalid birthday format in some records!", "success": False}
+
+        # Clean Salle column
+        df["Salle"] = df["Salle"].astype(str).str.strip()
 
         # Sort students alphabetically by Name and Surname
-        df = df.sort_values(by=["Name", "Surname"])
-        print("Data after sorting:", df)  # Print for verification
+        df = df.sort_values(by=["Name", "Surname"]).reset_index(drop=True)
+        print("Data after sorting:\n", df)  # Debug print
 
         # Connect to the database
         conn = get_db_connection()
@@ -465,55 +471,82 @@ def import_students_from_excel(file_path):
                     ORDER BY name_salle
                 """)
                 salles = cursor.fetchall()
-                print("Contents of salles:", salles)  # Print for verification
+                print("Available salles:", salles)  # Debug print
 
                 if not salles:
                     return {"error": "❌ No salles found in the database!", "success": False}
 
-                # Track remaining capacity for each salle
+                # Initialize salle tracking
                 salle_capacity = {}
                 salle_current_count = {}
                 for salle in salles:
-                    if isinstance(salle, dict):
-                        # If the result is a dictionary
-                        name = salle['name_salle']
-                        capacity = salle['capacity']
-                    else:
-                        # If the result is a tuple
-                        name = salle[0]
-                        capacity = salle[1]
+                    name = salle[0] if isinstance(salle, tuple) else salle['name_salle']
+                    capacity = salle[1] if isinstance(salle, tuple) else salle['capacity']
                     salle_capacity[name] = capacity
                     salle_current_count[name] = 0
 
-                print("Salle capacities:", salle_capacity)  # Print for verification
+                print("Salle capacities:", salle_capacity)  # Debug print
 
-                salle_names = list(salle_capacity.keys())
-                salle_index = 0
+                total_assigned = 0
 
-                # Assign students to salles
+                # Validate exam options
+                exam_options_result = get_exam_options()
+                if exam_options_result["error"]:
+                    return {"error": exam_options_result["error"], "success": False}
+                valid_exam_options = exam_options_result["data"]
+
+                # Assign students to salles as specified in Excel
                 for _, row in df.iterrows():
-                    if pd.notnull(row["Name"]) and pd.notnull(row["Surname"]) and pd.notnull(row["Birthday"]):
-                        # Find a salle with available capacity
-                        while salle_index < len(salle_names):
-                            current_salle = salle_names[salle_index]
-                            if salle_current_count[current_salle] < salle_capacity[current_salle]:
-                                # Assign student to this salle
-                                anonymous_id = generate_anonymous_id()
-                                cursor.execute(
-                                    """
-                                    INSERT INTO candidats (name, surname, birthday, anonymous_id, moyen, decision, absence, salle_name)
-                                    VALUES (%s, %s, %s, %s, 10.00, 'Pending', 0, %s)
-                                    """,
-                                    (row["Name"], row["Surname"], row["Birthday"], anonymous_id, current_salle)
-                                )
-                                salle_current_count[current_salle] += 1
-                                break
-                            else:
-                                salle_index += 1  # Move to the next salle
+                    if pd.notnull(row["Name"]) and pd.notnull(row["Surname"]) and pd.notnull(row["Birthday"]) and pd.notnull(row["Salle"]):
+                        current_salle = row["Salle"]
 
-                        if salle_index >= len(salle_names):
-                            return {"error": "❌ Insufficient salle capacity to accommodate all students!", "success": False}
+                        # Verify salle exists
+                        if current_salle not in salle_capacity:
+                            return {"error": f"❌ Salle '{current_salle}' not found in database!", "success": False}
 
+                        # Check salle capacity
+                        if salle_current_count[current_salle] >= salle_capacity[current_salle]:
+                            return {"error": f"❌ Salle '{current_salle}' has reached its capacity!", "success": False}
+
+                        # Validate exam option
+                        if row["Exam Option"] not in valid_exam_options:
+                            return {"error": f"❌ Invalid exam option '{row['Exam Option']}' for student {row['Name']} {row['Surname']}!", "success": False}
+
+                        # Check for duplicate student
+                        cursor.execute(
+                            """
+                            SELECT id FROM candidats 
+                            WHERE name = %s AND surname = %s AND birthday = %s
+                            """,
+                            (row["Name"], row["Surname"], row["Birthday"])
+                        )
+                        if cursor.fetchone():
+                            print(f"Skipping duplicate: {row['Name']} {row['Surname']} ({row['Birthday']})")
+                            continue
+
+                        # Insert student
+                        anonymous_id = generate_anonymous_id()
+                        cursor.execute(
+                            """
+                            INSERT INTO candidats 
+                            (name, surname, birthday, anonymous_id, moyen, decision, absence, salle_name)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                row["Name"],
+                                row["Surname"],
+                                row["Birthday"],
+                                anonymous_id,
+                                10.00,
+                                'Pending',
+                                0,
+                                current_salle
+                            )
+                        )
+                        salle_current_count[current_salle] += 1
+                        total_assigned += 1
+
+                print(f"Total students assigned: {total_assigned}")  # Debug print
                 conn.commit()
                 return {"error": None, "success": True}
 
@@ -521,9 +554,8 @@ def import_students_from_excel(file_path):
             conn.close()
 
     except Exception as e:
-        import traceback
         print(f"❌ Error in import_students_from_excel: {e}")
-        traceback.print_exc()  # Prints the full error traceback
+        traceback.print_exc()
         return {"error": f"❌ Import error: {str(e)}", "success": False}
 
 # Prof Page //////////////////////////////////////////////////////////////////////\\\\\\\\\\\\\\\\\\\\
