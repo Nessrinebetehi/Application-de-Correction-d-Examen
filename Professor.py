@@ -149,7 +149,7 @@ def create_professor_window(correction):
                 cr_exam.set("No exams available")
         else:
             messagebox.showerror("Error", response.json().get("error", "Failed to fetch exam modules"))
-        Corrections_page.after(5000, update_exam_modules)
+        Corrections_page.after(35000, update_exam_modules)
 
     update_exam_modules()
     cr_exam.bind("<<ComboboxSelected>>", update_exam_details)

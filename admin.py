@@ -422,11 +422,31 @@ def create_admin_window():
     st_done_btn = tk.Button(students_page, text="Done", font=("Arial", 14), bg="#00B400", fg="white", bd=0, command=save_student_data)
     st_done_btn.place(relx=0.9, y=300, width=148, height=27, anchor="e")
 
-    # Professors page
     def import_professors():
         file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx;*.xls")])
-        if file_path:
-            messagebox.showinfo("Info", "Importing professors from Excel is not yet implemented.")
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'rb') as file:
+                files = {'file': (file_path, file, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+                response = requests.post("https://pfcc.onrender.com/api/professors/import", files=files)
+            
+            if response.status_code == 200 or response.status_code == 400:
+                result = response.json()
+                message = result.get("message", "No message provided")
+                if result.get("errors"):
+                    message += "\nErrors:\n" + "\n".join(result["errors"])
+                if result.get("success_count", 0) > 0:
+                    update_table()
+                    messagebox.showinfo("Import Result", message)
+                else:
+                    messagebox.showerror("Import Failed", message)
+            else:
+                messagebox.showerror("Error", f"Server error: {response.json().get('error', 'Unknown error')}")
+        
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to import file: {str(e)}")
 
     tk.Label(professors_page, text="Import Prof List", font=("Arial", 14), bg="white").place(x=28, y=15)
     prof_imp_btn = tk.Button(professors_page, text="Import", font=("Arial", 12), bg="#D9D9D9", fg="black", bd=0,

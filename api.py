@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 import os
+import pandas as pd
 from db_connector import (
     get_all_salles, add_salle, delete_salle, get_salle_names,
     save_student, get_exam_options, import_students_from_excel,
@@ -30,32 +31,18 @@ def login():
     return jsonify({"role": result['role'], "correction": result['correction']}), 200
 
 
-# نقطة النهاية لاسترجاع جميع القاعات
 @app.route('/api/salles', methods=['GET'])
 def list_salles():
-    """
-    استرجاع قائمة بجميع القاعات من قاعدة البيانات.
 
-    Returns:
-        JSON: قائمة القاعات أو رسالة خطأ.
-    """
     result = get_all_salles()
     if result['error']:
         return jsonify({"error": result['error'], "salles": []}), 500
     return jsonify({"salles": result['data']}), 200
 
-# نقطة النهاية لإضافة قاعة جديدة
+
 @app.route('/api/salles', methods=['POST'])
 def create_salle():
-    """
-    إضافة قاعة جديدة إلى قاعدة البيانات.
 
-    Body:
-        JSON: يحتوي على 'name' (اسم القاعة) و 'capacity' (السعة).
-
-    Returns:
-        JSON: رسالة نجاح مع رمز القاعة أو رسالة خطأ.
-    """
     data = request.get_json()
     name = data.get('name')
     capacity = data.get('capacity')
@@ -68,49 +55,28 @@ def create_salle():
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Salle added", "code_salle": result['code_salle']}), 200
 
-# نقطة النهاية لحذف قاعة
+
 @app.route('/api/salles/<code_salle>', methods=['DELETE'])
 def remove_salle(code_salle):
-    """
-    حذف قاعة من قاعدة البيانات بناءً على رمز القاعة.
 
-    Args:
-        code_salle (str): رمز القاعة.
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     result = delete_salle(code_salle)
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Salle deleted"}), 200
 
-# نقطة النهاية لاسترجاع أسماء القاعات
+
 @app.route('/api/salle_names', methods=['GET'])
 def salle_names():
-    """
-    استرجاع قائمة بأسماء القاعات من قاعدة البيانات.
 
-    Returns:
-        JSON: قائمة أسماء القاعات أو رسالة خطأ.
-    """
     result = get_salle_names()
     if result['error']:
         return jsonify({"error": result['error'], "salle_names": []}), 500
     return jsonify({"salle_names": result['data']}), 200
 
-# نقطة النهاية لإضافة طالب جديد
+
 @app.route('/api/students', methods=['POST'])
 def add_student():
-    """
-    إضافة طالب جديد إلى قاعدة البيانات.
 
-    Body:
-        JSON: يحتوي على 'name', 'surname', 'dob' (تاريخ الميلاد YYYY-MM-DD), 'salle_name', 'exam_option'.
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     data = request.get_json()
     name = data.get('name')
     surname = data.get('surname')
@@ -123,32 +89,19 @@ def add_student():
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Student added successfully"}), 200
 
-# نقطة النهاية لاسترجاع خيارات الامتحانات
+
 @app.route('/api/exam_options', methods=['GET'])
 def exam_options():
-    """
-    استرجاع قائمة بخيارات الامتحانات من قاعدة البيانات.
 
-    Returns:
-        JSON: قائمة خيارات الامتحانات أو رسالة خطأ.
-    """
     result = get_exam_options()
     if result['error']:
         return jsonify({"error": result['error'], "options": []}), 500
     return jsonify({"options": result['data']}), 200
 
-# نقطة النهاية لإضافة امتحان جديد
+
 @app.route('/api/exams', methods=['POST'])
 def add_exam_endpoint():
-    """
-    إضافة امتحان جديد إلى قاعدة البيانات.
 
-    Body:
-        JSON: يحتوي على 'module' (اسم المادة) و 'coefficient' (المعامل).
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     data = request.get_json()
     module = data.get('module')
     coefficient = data.get('coefficient')
@@ -156,13 +109,13 @@ def add_exam_endpoint():
     if not module or not isinstance(coefficient, (int, float)):
         return jsonify({"error": "Module and coefficient (number) are required!"}), 400
 
-    # استخدام قيمة افتراضية لـ candidat_id لأننا لا نحتاج طالبًا في هذه المرحلة
+
     result = insert_exam(0, module, coefficient)
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Exam added successfully"}), 200
 
-# نقطة النهاية لاستيراد الطلاب من ملف Excel
+
 @app.route('/api/students/import', methods=['POST'])
 def import_students():
     file = request.files.get('file')
@@ -172,24 +125,79 @@ def import_students():
     file_path = f"temp_{file.filename}"
     file.save(file_path)
     result = import_students_from_excel(file_path)
-    os.remove(file_path)  # حذف الملف المؤقت بعد الاستيراد
+    os.remove(file_path) 
 
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Students imported successfully"}), 200
 
-# نقطة النهاية لإضافة أستاذ جديد
+@app.route('/api/professors/import', methods=['POST'])
+def import_professors():
+    """
+    Import professors from an uploaded Excel file.
+    Expects columns: Name, Surname, Email, Correction, Module.
+    Returns summary of successful imports and any errors.
+    """
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files['file']
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({"error": "File must be an Excel file (.xlsx or .xls)"}), 400
+
+    try:
+        # Read the Excel file
+        df = pd.read_excel(file)
+
+        # Expected columns
+        expected_columns = ['Name', 'Surname', 'Email', 'Correction', 'Module']
+        if not all(col in df.columns for col in expected_columns):
+            return jsonify({"error": "Excel file must contain columns: Name, Surname, Email, Correction, Module"}), 400
+
+        success_count = 0
+        errors = []
+
+        for index, row in df.iterrows():
+            name = str(row['Name']).strip()
+            surname = str(row['Surname']).strip()
+            email = str(row['Email']).strip()
+            correction = row['Correction']
+            module = str(row['Module']).strip()
+
+            # Validate data
+            if not (name and surname and email and module):
+                errors.append(f"Row {index + 2}: Missing required fields")
+                continue
+
+            try:
+                correction = int(correction)
+                if correction not in [1, 2, 3]:
+                    errors.append(f"Row {index + 2}: Correction must be 1, 2, or 3")
+                    continue
+            except (ValueError, TypeError):
+                errors.append(f"Row {index + 2}: Correction must be a number (1, 2, or 3)")
+                continue
+
+            # Call add_professor
+            result = add_professor(name, surname, email, correction, module)
+            if result['success']:
+                success_count += 1
+            else:
+                errors.append(f"Row {index + 2}: {result['error']}")
+
+        response = {
+            "message": f"Imported {success_count} professor(s) successfully",
+            "success_count": success_count,
+            "errors": errors
+        }
+        return jsonify(response), 200 if success_count > 0 else 400
+
+    except Exception as e:
+        return jsonify({"error": f"Failed to process Excel file: {str(e)}"}), 500
+    
 @app.route('/api/professors', methods=['POST'])
 def create_professor():
-    """
-    إضافة أستاذ جديد إلى قاعدة البيانات.
 
-    Body:
-        JSON: يحتوي على 'name', 'surname', 'email', 'correction', 'module'.
-
-    Returns:
-        JSON: رسالة نجاح مع كلمة المرور أو رسالة خطأ.
-    """
     data = request.get_json()
     name = data.get('name')
     surname = data.get('surname')
@@ -202,94 +210,55 @@ def create_professor():
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Professor added", "password": result['password']}), 200
 
-# نقطة النهاية لاسترجاع جميع الأساتذة
+
 @app.route('/api/professors', methods=['GET'])
 def list_professors():
-    """
-    استرجاع قائمة بجميع الأساتذة من قاعدة البيانات.
 
-    Returns:
-        JSON: قائمة الأساتذة أو رسالة خطأ.
-    """
     result = get_profs_from_db()
     if result['error']:
         return jsonify({"error": result['error'], "professors": []}), 500
     return jsonify({"professors": result['data']}), 200
 
-# نقطة النهاية لحذف أستاذ
+
 @app.route('/api/professors/<email>', methods=['DELETE'])
 def remove_professor(email):
-    """
-    حذف أستاذ من قاعدة البيانات بناءً على البريد الإلكتروني.
 
-    Args:
-        email (str): البريد الإلكتروني للأستاذ.
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     result = delete_professor(email)
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Professor deleted"}), 200
 
-# نقطة النهاية لإرسال الإيميلات إلى الأساتذة
+
 @app.route('/api/professors/send_emails', methods=['POST'])
 def trigger_send_emails():
-    """
-    إرسال إيميلات إلى جميع الأساتذة تحتوي على بيانات الحساب.
 
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     result = send_emails()
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Emails sent successfully"}), 200
 
-# نقطة النهاية لاسترجاع المرشحين حسب القاعة
+
 @app.route('/api/candidates/salle/<salle_name>', methods=['GET'])
 def candidates_by_salle(salle_name):
-    """
-    استرجاع قائمة المرشحين في قاعة محددة.
 
-    Args:
-        salle_name (str): اسم القاعة.
-
-    Returns:
-        JSON: قائمة المرشحين أو رسالة خطأ.
-    """
     result = get_candidates_by_salle(salle_name)
     if result['error']:
         return jsonify({"error": result['error'], "candidates": []}), 500
     return jsonify({"candidates": result['data']}), 200
 
-# نقطة النهاية لاسترجاع جميع المرشحين
+
 @app.route('/api/candidates', methods=['GET'])
 def all_candidates():
-    """
-    استرجاع قائمة بجميع المرشحين من قاعدة البيانات.
 
-    Returns:
-        JSON: قائمة المرشحين أو رسالة خطأ.
-    """
     result = get_all_candidates()
     if result['error']:
         return jsonify({"error": result['error'], "candidates": []}), 500
     return jsonify({"candidates": result['data']}), 200
 
-# نقطة النهاية لاستيراد الغيابات من ملف Excel
+
 @app.route('/api/absences/import', methods=['POST'])
 def import_absences_endpoint():
-    """
-    استيراد الغيابات من ملف Excel وتحديث قاعدة البيانات.
 
-    Body:
-        FormData: يحتوي على ملف Excel ('file').
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     file = request.files.get('file')
     if not file:
         return jsonify({"error": "No file uploaded"}), 400
@@ -303,33 +272,20 @@ def import_absences_endpoint():
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Absences imported successfully"}), 200
 
-# نقطة النهاية لاسترجاع بيانات المعهد
+
 @app.route('/api/institute', methods=['GET'])
 def get_institute_data():
-    """
-    استرجاع بيانات المعهد (اسم المنصب وعدد الامتحانات).
 
-    Returns:
-        JSON: بيانات المعهد أو رسالة خطأ.
-    """
     result = institute_data()
     if result['error']:
         return jsonify({"error": result['error'], "name_post": "Error", "nbr_exams": 0}), 500
     name_post, nbr_exams = result['data']
     return jsonify({"name_post": name_post, "nbr_exams": nbr_exams}), 200
 
-# نقطة النهاية لحفظ بيانات المعهد (op_save_data)
+
 @app.route('/api/institutes', methods=['POST'])
 def save_institute_data():
-    """
-    حفظ بيانات المعهد في قاعدة البيانات.
 
-    Body:
-        JSON: يحتوي على 'institute_name', 'exam_option', 'name_post', و 'nbr_exams'.
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     data = request.get_json()
     institute_name = data.get('institute_name')
     exam_option = data.get('exam_option')
@@ -344,49 +300,28 @@ def save_institute_data():
         return jsonify({"error": result}), 400
     return jsonify({"message": result}), 200
 
-# نقطة النهاية لحذف امتحان (delete_exam)
+
 @app.route('/api/exams/<int:exam_id>', methods=['DELETE'])
 def remove_exam(exam_id):
-    """
-    حذف امتحان من قاعدة البيانات بناءً على معرفه.
 
-    Args:
-        exam_id (int): معرف الامتحان.
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     result = delete_exam(exam_id)
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Exam deleted successfully"}), 200
 
-# نقطة النهاية لحذف جميع البيانات (delete_all_data)
+
 @app.route('/api/data', methods=['DELETE'])
 def delete_all():
-    """
-    حذف جميع البيانات من جداول قاعدة البيانات (professors, institutes, salles, candidats, exams).
 
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     result = delete_all_data()
     if result['error']:
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "All data deleted successfully"}), 200
 
-# نقطة النهاية لتصدير النتائج إلى ملف Excel
+
 @app.route('/api/results', methods=['POST'])
 def export_results():
-    """
-    تصدير النتائج إلى ملف Excel بناءً على اسم القاعة واللغة.
 
-    Body:
-        JSON: يحتوي على 'salle_name' و 'language'.
-
-    Returns:
-        File: ملف Excel أو رسالة خطأ.
-    """
     data = request.get_json()
     salle_name = data.get('salle_name')
     language = data.get('language')
@@ -395,18 +330,10 @@ def export_results():
         return jsonify({"error": result['error']}), 400
     return send_file(result['file_path'], as_attachment=True)
 
-# نقطة النهاية لحفظ درجة الطالب
+
 @app.route('/api/grades', methods=['POST'])
 def save_grade_endpoint():
-    """
-    حفظ درجة طالب في امتحان معين.
 
-    Body:
-        JSON: يحتوي على 'anonymous_id', 'exam_name', 'correction', 'grade', 'coeff'.
-
-    Returns:
-        JSON: رسالة نجاح أو رسالة خطأ.
-    """
     data = request.get_json()
     anonymous_id = data.get('anonymous_id')
     exam_name = data.get('exam_name')
@@ -419,32 +346,19 @@ def save_grade_endpoint():
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Grade saved successfully"}), 200
 
-# نقطة النهاية لاسترجاع قائمة المواد الدراسية
+
 @app.route('/api/exam_modules', methods=['GET'])
 def exam_modules():
-    """
-    استرجاع قائمة المواد الدراسية من قاعدة البيانات.
 
-    Returns:
-        JSON: قائمة المواد أو رسالة خطأ.
-    """
     result = fetch_exam_modules()
     if result['error']:
         return jsonify({"error": result['error'], "modules": []}), 500
     return jsonify({"modules": result['data']}), 200
 
-# نقطة النهاية لاسترجاع تفاصيل مادة دراسية
+
 @app.route('/api/exam_details/<module_name>', methods=['GET'])
 def exam_details(module_name):
-    """
-    استرجاع تفاصيل مادة دراسية بناءً على اسمها.
 
-    Args:
-        module_name (str): اسم المادة.
-
-    Returns:
-        JSON: تفاصيل المادة (اسمها ومعاملها) أو رسالة خطأ.
-    """
     result = fetch_exam_details(module_name)
     if result['error']:
         return jsonify({"error": result['error'], "subject": "", "coefficient": 0.0}), 500
