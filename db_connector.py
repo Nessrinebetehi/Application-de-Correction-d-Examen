@@ -563,6 +563,87 @@ def fetch_modules():
     finally:
         conn.close()
 
+def import_professors_from_excel(file_stream):
+    """
+    Import professors from an Excel file stream.
+    Expects columns: Name, Surname, Email, Correction, Module.
+
+    Args:
+        file_stream: File-like object (e.g., from Flask request.files['file']).
+
+    Returns:
+        dict: Dictionary containing 'success_count' (int), 'errors' (list of error messages),
+              and 'error' (general error message or None).
+    """
+    try:
+        # Read the Excel file
+        df = pd.read_excel(file_stream, engine='openpyxl')  # Use openpyxl for .xlsx files
+
+        # Expected columns
+        expected_columns = ['Name', 'Surname', 'Email', 'Correction', 'Module']
+        if not all(col in df.columns for col in expected_columns):
+            return {
+                "success_count": 0,
+                "errors": [],
+                "error": "Excel file must contain columns: Name, Surname, Email, Correction, Module"
+            }
+
+        success_count = 0
+        errors = []
+
+        for index, row in df.iterrows():
+            name = str(row['Name']).strip()
+            surname = str(row['Surname']).strip()
+            email = str(row['Email']).strip()
+            correction = row['Correction']
+            module = str(row['Module']).strip()
+
+            # Validate data
+            if not (name and surname and email and module):
+                errors.append(f"Row {index + 2}: Missing required fields")
+                continue
+
+            try:
+                correction = int(correction)
+                if correction not in [1, 2, 3]:
+                    errors.append(f"Row {index + 2}: Correction must be 1, 2, or 3")
+                    continue
+            except (ValueError, TypeError):
+                errors.append(f"Row {index + 2}: Correction must be a number (1, 2, or 3)")
+                continue
+
+            # Call add_professor (already defined in db_connector.py)
+            result = add_professor(name, surname, email, correction, module)
+            if result['success']:
+                success_count += 1
+            else:
+                errors.append(f"Row {index + 2}: {result['error']}")
+
+        return {
+            "success_count": success_count,
+            "errors": errors,
+            "error": None
+        }
+
+    except pd.errors.EmptyDataError:
+        return {
+            "success_count": 0,
+            "errors": [],
+            "error": "The Excel file is empty or contains no data!"
+        }
+    except pd.errors.ParserError as e:
+        return {
+            "success_count": 0,
+            "errors": [],
+            "error": f"Failed to parse Excel file: {str(e)}"
+        }
+    except Exception as e:
+        return {
+            "success_count": 0,
+            "errors": [],
+            "error": f"Failed to process Excel file: {str(e)}"
+        }
+
 def add_professor(name, surname, email, correction, module):
     """
     Add a new professor to the professors table.

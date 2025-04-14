@@ -1,10 +1,9 @@
 from flask import Flask, jsonify, request
 import os
-import pandas as pd
 from db_connector import (
     get_all_salles, add_salle, delete_salle, get_salle_names,
     save_student, get_exam_options, import_students_from_excel,
-    add_professor, get_profs_from_db, delete_professor, send_emails,
+    add_professor,import_professors_from_excel, get_profs_from_db, delete_professor, send_emails,
     get_candidates_by_salle, get_all_candidates, import_absences,
     institute_data, calculate_and_export_results,
     save_grade, fetch_exam_modules, fetch_exam_details, insert_exam,
@@ -131,6 +130,7 @@ def import_students():
         return jsonify({"error": result['error']}), 400
     return jsonify({"message": "Students imported successfully"}), 200
 
+
 @app.route('/api/professors/import', methods=['POST'])
 def import_professors():
     """
@@ -142,59 +142,28 @@ def import_professors():
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files['file']
-    if not file.filename.endswith(('.xlsx', '.xls')):
+    if not file.filename.lower().endswith(('.xlsx', '.xls')):
         return jsonify({"error": "File must be an Excel file (.xlsx or .xls)"}), 400
 
-    try:
-        # Read the Excel file
-        df = pd.read_excel(file)
+    # Check if file is empty
+    file.seek(0, os.SEEK_END)
+    if file.tell() == 0:
+        return jsonify({"error": "Uploaded file is empty"}), 400
+    file.seek(0)  # Reset file pointer to beginning
 
-        # Expected columns
-        expected_columns = ['Name', 'Surname', 'Email', 'Correction', 'Module']
-        if not all(col in df.columns for col in expected_columns):
-            return jsonify({"error": "Excel file must contain columns: Name, Surname, Email, Correction, Module"}), 400
+    # Call the import function from db_connector
+    result = import_professors_from_excel(file)
 
-        success_count = 0
-        errors = []
+    if result['error']:
+        return jsonify({"error": result['error']}), 400
 
-        for index, row in df.iterrows():
-            name = str(row['Name']).strip()
-            surname = str(row['Surname']).strip()
-            email = str(row['Email']).strip()
-            correction = row['Correction']
-            module = str(row['Module']).strip()
+    response = {
+        "message": f"Imported {result['success_count']} professor(s) successfully",
+        "success_count": result['success_count'],
+        "errors": result['errors']
+    }
+    return jsonify(response), 200 if result['success_count'] > 0 else 400
 
-            # Validate data
-            if not (name and surname and email and module):
-                errors.append(f"Row {index + 2}: Missing required fields")
-                continue
-
-            try:
-                correction = int(correction)
-                if correction not in [1, 2, 3]:
-                    errors.append(f"Row {index + 2}: Correction must be 1, 2, or 3")
-                    continue
-            except (ValueError, TypeError):
-                errors.append(f"Row {index + 2}: Correction must be a number (1, 2, or 3)")
-                continue
-
-            # Call add_professor
-            result = add_professor(name, surname, email, correction, module)
-            if result['success']:
-                success_count += 1
-            else:
-                errors.append(f"Row {index + 2}: {result['error']}")
-
-        response = {
-            "message": f"Imported {success_count} professor(s) successfully",
-            "success_count": success_count,
-            "errors": errors
-        }
-        return jsonify(response), 200 if success_count > 0 else 400
-
-    except Exception as e:
-        return jsonify({"error": f"Failed to process Excel file: {str(e)}"}), 500
-    
 @app.route('/api/professors', methods=['POST'])
 def create_professor():
 

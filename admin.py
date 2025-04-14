@@ -429,10 +429,12 @@ def create_admin_window():
 
         try:
             with open(file_path, 'rb') as file:
-                files = {'file': (file_path, file, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+                # Determine the MIME type based on file extension
+                mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if file_path.endswith('.xlsx') else 'application/vnd.ms-excel'
+                files = {'file': (os.path.basename(file_path), file, mime_type)}
                 response = requests.post("https://pfcc.onrender.com/api/professors/import", files=files)
             
-            if response.status_code == 200 or response.status_code == 400:
+            if response.status_code in (200, 400):
                 result = response.json()
                 message = result.get("message", "No message provided")
                 if result.get("errors"):
@@ -444,7 +446,9 @@ def create_admin_window():
                     messagebox.showerror("Import Failed", message)
             else:
                 messagebox.showerror("Error", f"Server error: {response.json().get('error', 'Unknown error')}")
-        
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror("Error", f"Failed to connect to server: {str(e)}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to import file: {str(e)}")
 
