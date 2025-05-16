@@ -1030,29 +1030,29 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 modules = candidate['modules']
                 grades = candidate['grades']
 
-                moyen = calculate_candidate_moyen(candidat_id, conn)
-                moyen_for_sorting = moyen if moyen is not None else -1
+                # Check if grades exist before calculating moyenne
+                if grades and any(g.strip() for g in grades.split(',')):
+                    moyen = calculate_candidate_moyen(candidat_id, conn)
+                else:
+                    moyen = ""  # Set average to empty if no grades
+
+                moyen_for_sorting = moyen if moyen is not None and moyen != "" else -1
 
                 if absence is not None and absence > 2:
                     moyen = "Rejected" if language == "English" else "مرفوض"
                     moyen_for_sorting = -1
-                else:
-                    moyen = "" if moyen is None else moyen
 
                 if isinstance(birthday, str):
                     birthday = datetime.strptime(birthday, '%Y-%m-%d')
                 elif birthday is None:
                     birthday = ""
 
-                # Modified grade handling: Use empty strings for missing grades
                 module_list = modules.split(',') if modules else []
                 grade_list = []
                 if grades:
-                    grade_list = [float(g) if g else "" for g in grades.split(',')]
-                    # Ensure grade_list matches module_list length by padding with empty strings
+                    grade_list = [float(g) if g and g.strip() else "" for g in grades.split(',')]
                     grade_list += [""] * (len(module_list) - len(grade_list))
                 else:
-                    # If no grades exist, use empty strings for all modules
                     grade_list = [""] * len(module_list)
 
                 row = [name, surname, birthday] + grade_list + [moyen, moyen_for_sorting]
@@ -1066,10 +1066,7 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 default_filename = f"results_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
             df = pd.DataFrame(data, columns=headers)
-            df['Birthday'] = pd.to_datetime(
-                df['Birthday'], errors='coerce'
-            )
-
+            df['Birthday'] = pd.to_datetime(df['Birthday'], errors='coerce')
             df = df.sort_values(by='Sort_Moyen', ascending=False)
             df = df.drop(columns=['Sort_Moyen'])
 
