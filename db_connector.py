@@ -352,12 +352,7 @@ def get_exam_options():
         conn.close()
 
 def generate_anonymous_id():
-    """
-    Generate an anonymous ID for a student (8 digits, starting with a non-zero digit).
 
-    Returns:
-        str: Anonymous ID.
-    """
     first_digit = random.choice("123456789")
     other_digits = ''.join(random.choices("0123456789", k=7))
     return first_digit + other_digits
@@ -426,7 +421,7 @@ def save_student(name, surname, dob, salle_code, exam_option):
 
 def import_students_from_excel(file_path):
     """
-    Import student data from an Excel file, assign them to salles as specified,
+    Import student data from an Excel file, assign them to salles alphabetically,
     and respect salle capacity.
 
     Args:
@@ -441,17 +436,14 @@ def import_students_from_excel(file_path):
     try:
         # Read Excel file
         df = pd.read_excel(file_path)
-        required_columns = {"Name", "Surname", "Birthday", "Salle", "Exam Option"}
+        required_columns = {"Name", "Surname", "Birthday", "Exam Option"}
         if not required_columns.issubset(df.columns):
-            return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Salle, Exam Option", "success": False}
+            return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
 
         # Convert Birthday to proper date format
         df["Birthday"] = pd.to_datetime(df["Birthday"], format='%d-%m-%Y', errors='coerce').dt.strftime('%Y-%m-%d')
         if df["Birthday"].isna().any():
             return {"error": "❌ Invalid birthday format in some records!", "success": False}
-
-        # Clean Salle column
-        df["Salle"] = df["Salle"].astype(str).str.strip()
 
         # Sort students alphabetically by Name and Surname
         df = df.sort_values(by=["Name", "Surname"]).reset_index(drop=True)
@@ -464,7 +456,7 @@ def import_students_from_excel(file_path):
 
         try:
             with conn.cursor() as cursor:
-                # Fetch all salles with their capacities
+                # Fetch all salles with their capacities, ordered alphabetically
                 cursor.execute("""
                     SELECT name_salle, capacity 
                     FROM salles 
@@ -488,6 +480,8 @@ def import_students_from_excel(file_path):
                 print("Salle capacities:", salle_capacity)  # Debug print
 
                 total_assigned = 0
+                salle_names = sorted(salle_capacity.keys())  # List of salle names in alphabetical order
+                current_salle_index = 0  # Start with the first salle
 
                 # Validate exam options
                 exam_options_result = get_exam_options()
@@ -495,18 +489,19 @@ def import_students_from_excel(file_path):
                     return {"error": exam_options_result["error"], "success": False}
                 valid_exam_options = exam_options_result["data"]
 
-                # Assign students to salles as specified in Excel
+                # Assign students to salles alphabetically
                 for _, row in df.iterrows():
-                    if pd.notnull(row["Name"]) and pd.notnull(row["Surname"]) and pd.notnull(row["Birthday"]) and pd.notnull(row["Salle"]):
-                        current_salle = row["Salle"]
-
-                        # Verify salle exists
-                        if current_salle not in salle_capacity:
-                            return {"error": f"❌ Salle '{current_salle}' not found in database!", "success": False}
-
-                        # Check salle capacity
-                        if salle_current_count[current_salle] >= salle_capacity[current_salle]:
-                            return {"error": f"❌ Salle '{current_salle}' has reached its capacity!", "success": False}
+                    if pd.notnull(row["Name"]) and pd.notnull(row["Surname"]) and pd.notnull(row["Birthday"]):
+                        # Find an available salle
+                        while current_salle_index < len(salle_names):
+                            current_salle = salle_names[current_salle_index]
+                            if salle_current_count[current_salle] < salle_capacity[current_salle]:
+                                break
+                            current_salle_index += 1  # Move to next salle if current is full
+                        
+                        # If no salle is available
+                        if current_salle_index >= len(salle_names):
+                            return {"error": "❌ No available salle capacity for all students!", "success": False}
 
                         # Validate exam option
                         if row["Exam Option"] not in valid_exam_options:
