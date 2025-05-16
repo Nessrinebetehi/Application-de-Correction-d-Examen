@@ -1034,24 +1034,32 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 moyen_for_sorting = moyen if moyen is not None else -1
 
                 if absence is not None and absence > 2:
-                    moyen = "Rejected" if language == "English" else "Rejected"
+                    moyen = "Rejected" if language == "English" else "مرفوض"
                     moyen_for_sorting = -1
                 else:
-                    moyen = "N/A" if moyen is None else moyen
+                    moyen = "" if moyen is None else moyen
 
                 if isinstance(birthday, str):
                     birthday = datetime.strptime(birthday, '%Y-%m-%d')
                 elif birthday is None:
-                    birthday = "N/A"
+                    birthday = ""
 
+                # Modified grade handling: Use empty strings for missing grades
                 module_list = modules.split(',') if modules else []
-                grade_list = [float(g) if g else "N/A" for g in (grades.split(',') if grades else [])]
+                grade_list = []
+                if grades:
+                    grade_list = [float(g) if g else "" for g in grades.split(',')]
+                    # Ensure grade_list matches module_list length by padding with empty strings
+                    grade_list += [""] * (len(module_list) - len(grade_list))
+                else:
+                    # If no grades exist, use empty strings for all modules
+                    grade_list = [""] * len(module_list)
 
                 row = [name, surname, birthday] + grade_list + [moyen, moyen_for_sorting]
                 data.append(row)
 
             if language == "Arabic":
-                headers = ["Name", "Surname", "Birthday"] + module_list + ["Average", "Sort_Moyen"]
+                headers = ["الاسم", "اللقب", "تاريخ الميلاد"] + module_list + ["المتوسط", "Sort_Moyen"]
                 default_filename = f"results_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             else:
                 headers = ["Name", "Surname", "Birthday"] + module_list + ["Average", "Sort_Moyen"]
@@ -1070,7 +1078,7 @@ def calculate_and_export_results(salle_name, language, output_path=None):
             with pd.ExcelWriter(file_path, engine='openpyxl', date_format='dd/mm/yyyy') as writer:
                 df.to_excel(writer, index=False)
                 worksheet = writer.sheets['Sheet1']
-                date_col_idx = headers.index('Birthday') + 1
+                date_col_idx = headers.index('Birthday') + 1 if 'Birthday' in headers else headers.index('تاريخ الميلاد') + 1
                 for cell in worksheet[f'{chr(64 + date_col_idx)}:{chr(64 + date_col_idx)}']:
                     cell.number_format = 'DD/MM/YYYY'
                 date_col_letter = get_column_letter(date_col_idx)
