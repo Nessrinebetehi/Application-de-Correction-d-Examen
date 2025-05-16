@@ -601,6 +601,7 @@ def create_admin_window():
                 messagebox.showinfo("Info", "No candidates found for the selected salle.")
                 return
             df = pd.DataFrame(candidates)
+            df = df[["name", "surname", "salle"]]
             df["audience"] = ""
             file_path = asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
             if file_path:
