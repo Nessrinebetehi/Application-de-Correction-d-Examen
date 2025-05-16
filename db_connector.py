@@ -1004,6 +1004,7 @@ def calculate_and_export_results(salle_name, language, output_path=None):
 
     try:
         with conn.cursor() as cursor:
+            # Use triple quotes for multiline SQL query to avoid unclosed string errors
             query = """
                 SELECT c.id, c.name, c.surname, c.birthday, c.absence,
                        GROUP_CONCAT(e.module_name SEPARATOR ',') AS modules,
@@ -1041,19 +1042,21 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 if absence is not None and absence > 2:
                     moyen = "Rejected" if language == "English" else "مرفوض"
                     moyen_for_sorting = -1
+                    module_list = modules.split(',') if modules else []  # Ensure module_list is defined
+                    grade_list = [""] * len(module_list)  # Clear grades for "Rejected" students
+                else:
+                    module_list = modules.split(',') if modules else []
+                    grade_list = []
+                    if grades:
+                        grade_list = [float(g) if g and g.strip() else "" for g in grades.split(',')]
+                        grade_list += [""] * (len(module_list) - len(grade_list))
+                    else:
+                        grade_list = [""] * len(module_list)
 
                 if isinstance(birthday, str):
                     birthday = datetime.strptime(birthday, '%Y-%m-%d')
                 elif birthday is None:
                     birthday = ""
-
-                module_list = modules.split(',') if modules else []
-                grade_list = []
-                if grades:
-                    grade_list = [float(g) if g and g.strip() else "" for g in grades.split(',')]
-                    grade_list += [""] * (len(module_list) - len(grade_list))
-                else:
-                    grade_list = [""] * len(module_list)
 
                 row = [name, surname, birthday] + grade_list + [moyen, moyen_for_sorting]
                 data.append(row)
@@ -1082,6 +1085,7 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 worksheet.column_dimensions[date_col_letter].width = 15
 
             return {"error": None, "success": True, "file_path": file_path}
+
     except pymysql.Error as err:
         print(f"❌ Database Error in calculate_and_export_results: {err}")
         return {"error": f"❌ Database error: {err}", "success": False, "file_path": None}
