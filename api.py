@@ -290,7 +290,6 @@ def delete_all():
 
 @app.route('/api/results', methods=['POST'])
 def export_results():
-
     data = request.get_json()
     salle_name = data.get('salle_name')
     language = data.get('language')

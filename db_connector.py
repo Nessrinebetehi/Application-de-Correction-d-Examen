@@ -1004,7 +1004,6 @@ def calculate_and_export_results(salle_name, language, output_path=None):
 
     try:
         with conn.cursor() as cursor:
-            # Use triple quotes for multiline SQL query to avoid unclosed string errors
             query = """
                 SELECT c.id, c.name, c.surname, c.birthday, c.absence,
                        GROUP_CONCAT(e.module_name SEPARATOR ',') AS modules,
@@ -1021,7 +1020,14 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 return {"error": f"No candidates found for salle: {salle_name}", "success": False, "file_path": None}
 
             data = []
-            module_list = None
+            # Collect all unique modules first to ensure consistency
+            all_modules = set()
+            for candidate in candidates:
+                modules = candidate['modules']
+                if modules:
+                    all_modules.update(modules.split(','))
+            module_list = list(all_modules) if all_modules else []
+
             for candidate in candidates:
                 candidat_id = candidate['id']
                 name = candidate['name']
@@ -1031,25 +1037,25 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 modules = candidate['modules']
                 grades = candidate['grades']
 
-                # Check if grades exist before calculating moyenne
                 if grades and any(g.strip() for g in grades.split(',')):
                     moyen = calculate_candidate_moyen(candidat_id, conn)
                 else:
-                    moyen = ""  # Set average to empty if no grades
+                    moyen = ""
 
                 moyen_for_sorting = moyen if moyen is not None and moyen != "" else -1
 
                 if absence is not None and absence > 2:
                     moyen = "Rejected" if language == "English" else "مرفوض"
                     moyen_for_sorting = -1
-                    module_list = modules.split(',') if modules else []  # Ensure module_list is defined
-                    grade_list = [""] * len(module_list)  # Clear grades for "Rejected" students
+                    grade_list = [""] * len(module_list)
                 else:
-                    module_list = modules.split(',') if modules else []
                     grade_list = []
                     if grades:
                         grade_list = [float(g) if g and g.strip() else "" for g in grades.split(',')]
-                        grade_list += [""] * (len(module_list) - len(grade_list))
+                        if len(grade_list) < len(module_list):
+                            grade_list += [""] * (len(module_list) - len(grade_list))
+                        elif len(grade_list) > len(module_list):
+                            grade_list = grade_list[:len(module_list)]
                     else:
                         grade_list = [""] * len(module_list)
 
@@ -1061,12 +1067,13 @@ def calculate_and_export_results(salle_name, language, output_path=None):
                 row = [name, surname, birthday] + grade_list + [moyen, moyen_for_sorting]
                 data.append(row)
 
+            default_filename = f"results_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             if language == "Arabic":
                 headers = ["الاسم", "اللقب", "تاريخ الميلاد"] + module_list + ["المتوسط", "Sort_Moyen"]
-                default_filename = f"results_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             else:
                 headers = ["Name", "Surname", "Birthday"] + module_list + ["Average", "Sort_Moyen"]
-                default_filename = f"results_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+            print(f"Headers length: {len(headers)}, Data row length: {len(data[0])}")
 
             df = pd.DataFrame(data, columns=headers)
             df['Birthday'] = pd.to_datetime(df['Birthday'], errors='coerce')

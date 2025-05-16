@@ -698,7 +698,7 @@ def create_admin_window():
             json={"salle_name": salle_name, "language": language}
         )
         if response.status_code == 200:
-            file_path = asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
+            file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
             if file_path:
                 with open(file_path, 'wb') as f:
                     f.write(response.content)
