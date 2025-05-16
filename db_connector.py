@@ -1069,16 +1069,16 @@ def calculate_and_export_results(salle_name, language, output_path=None):
 
             default_filename = f"results_{salle_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
             if language == "Arabic":
-                headers = ["الاسم", "اللقب", "تاريخ الميلاد"] + module_list + ["المتوسط", "moyen"]
+                headers = ["الاسم", "اللقب", "تاريخ الميلاد"] + module_list + ["المتوسط", "Sort_Moyen"]
             else:
-                headers = ["Name", "Surname", "Birthday"] + module_list + ["Average", "moyen"]
+                headers = ["Name", "Surname", "Birthday"] + module_list + ["Average", "Sort_Moyen"]
 
             print(f"Headers length: {len(headers)}, Data row length: {len(data[0])}")
 
             df = pd.DataFrame(data, columns=headers)
             df['Birthday'] = pd.to_datetime(df['Birthday'], errors='coerce')
-            df = df.sort_values(by='moyen', ascending=False)
-            df = df.drop(columns=['moyen'])
+            df = df.sort_values(by='Sort_Moyen', ascending=False)
+            df = df.drop(columns=['Sort_Moyen'])
 
             file_path = output_path if output_path else os.path.join(os.getcwd(), default_filename)
 

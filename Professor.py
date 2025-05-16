@@ -117,7 +117,7 @@ def create_professor_window(correction):
     coeff_label.place(x=490, y=180)
 
     # Store coefficient globally to use in save_grades
-    current_coefficient = 0.0
+    
 
     def update_exam_details(event):
         global current_coefficient
@@ -161,7 +161,7 @@ def create_professor_window(correction):
     tk.Label(Corrections_page, text="Final grade", font=("Arial", 14), bg="white").place(x=370, y=230)
     cr_grade_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="readonly")
     cr_grade_entry.place(x=490, y=225, width=114, height=36)
-
+    correction = 2
     def handle_save():
         anonymous_id = cr_anonyme_entry.get().strip()
         exam_name = cr_exam.get().strip()
@@ -191,6 +191,7 @@ def create_professor_window(correction):
                 cr_grade_entry.config(state="readonly")
                 cr_anonyme_entry.delete(0, tk.END)
                 cr_entry.delete(0, tk.END)
+                print(current_coefficient)
             else:
                 messagebox.showerror("Error", response.json().get("error", "Failed to save grade"))
         except ValueError:
