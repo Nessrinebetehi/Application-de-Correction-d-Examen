@@ -161,7 +161,6 @@ def create_professor_window(correction):
     tk.Label(Corrections_page, text="Final grade", font=("Arial", 14), bg="white").place(x=370, y=230)
     cr_grade_entry = tk.Entry(Corrections_page, font=("Arial", 14), bd=2, relief="groove", bg="#FFFFFF", fg="#333333", state="readonly")
     cr_grade_entry.place(x=490, y=225, width=114, height=36)
-    correction = 2
     def handle_save():
         anonymous_id = cr_anonyme_entry.get().strip()
         exam_name = cr_exam.get().strip()

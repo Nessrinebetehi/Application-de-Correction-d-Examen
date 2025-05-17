@@ -436,14 +436,16 @@ def import_students_from_excel(file_path):
     try:
         # Read Excel file
         df = pd.read_excel(file_path)
-        required_columns = {"Name", "Surname", "Birthday", "Exam Option"}
+        required_columns = {"Name", "Surname", "Birthday", "Exam option"}
         if not required_columns.issubset(df.columns):
             return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
 
         # Convert Birthday to proper date format
-        df["Birthday"] = pd.to_datetime(df["Birthday"], format='%d-%m-%Y', errors='coerce').dt.strftime('%Y-%m-%d')
+        df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce')
         if df["Birthday"].isna().any():
-            return {"error": "❌ Invalid birthday format in some records!", "success": False}
+            return {"error": "❌ Invalid birthday format in some records!","success": False}
+        df["Birthday"] = df["Birthday"].dt.strftime('%Y-%m-%d')
+
 
         # Sort students alphabetically by Name and Surname
         df = df.sort_values(by=["Name", "Surname"]).reset_index(drop=True)
