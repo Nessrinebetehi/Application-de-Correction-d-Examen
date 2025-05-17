@@ -422,7 +422,7 @@ def save_student(name, surname, dob, salle_code, exam_option):
 def import_students_from_excel(file_path):
     """
     Import student data from an Excel file, assign them to salles alphabetically,
-    and respect salle capacity. Accepts any valid birthday format.
+    and respect salle capacity.
 
     Args:
         file_path (str): Path to the Excel file.
@@ -440,10 +440,13 @@ def import_students_from_excel(file_path):
         if not required_columns.issubset(df.columns):
             return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
 
-        # Convert Birthday to proper date format, inferring format
-        df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce').dt.strftime('%Y-%m-%d')
+        # Convert Birthday to proper date format
+        df["Birthday"] = df["Birthday"].astype(str).str.strip()
+        df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce', dayfirst=True)
         if df["Birthday"].isna().any():
-            return {"error": "❌ Invalid birthday format in some records!", "success": False}
+            return {"error": "❌ Invalid birthday format in some records!","success": False}
+        df["Birthday"] = df["Birthday"].dt.strftime('%Y-%m-%d')
+
 
         # Sort students alphabetically by Name and Surname
         df = df.sort_values(by=["Name", "Surname"]).reset_index(drop=True)
