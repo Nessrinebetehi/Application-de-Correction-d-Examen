@@ -485,7 +485,7 @@ def import_students_from_excel(file_path):
                     ORDER BY name_salle
                 """)
                 salles = cursor.fetchall()
-                print("Available salles:", salles)  # Debug print
+                print("Available salles:", salles)  # Debug printt
 
                 if not salles:
                     return {"error": "❌ No salles found in the database!", "success": False}
