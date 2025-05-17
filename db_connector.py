@@ -436,21 +436,41 @@ def import_students_from_excel(file_path):
     try:
         # Read Excel file
         df = pd.read_excel(file_path)
-        required_columns = {"Name", "Surname", "Birthday", "Exam option"}
+        df.columns = df.columns.str.strip().str.title()  # Normalize column names
+        required_columns = {"Name", "Surname", "Birthday", "Exam Option"}
         if not required_columns.issubset(df.columns):
             return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
 
-        # Convert Birthday to proper date format
+        # Normalize and validate data
+        df["Name"] = df["Name"].str.strip().str.title()
+        df["Surname"] = df["Surname"].str.strip().str.title()
+        df["Exam Option"] = df["Exam Option"].str.strip().str.upper()
         df["Birthday"] = df["Birthday"].astype(str).str.strip()
+
+        # Convert and validate birthdays
+        current_year = datetime.now().year
         df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce', dayfirst=True)
-        if df["Birthday"].isna().any():
-            return {"error": "❌ Invalid birthday format in some records!","success": False}
+        invalid_birthdays = df[df["Birthday"].isna()]
+        if not invalid_birthdays.empty:
+            error_msg = "❌ Invalid birthday format in rows:\n"
+            for idx, row in invalid_birthdays.iterrows():
+                error_msg += f"Row {idx}: {row['Name']} {row['Surname']} ({row['Birthday']})\n"
+            return {"error": error_msg, "success": False}
+
+        # Check age range
+        df["Age"] = current_year - df["Birthday"].dt.year
+        invalid_ages = df[(df["Age"] < 18) | (df["Age"] > 60)]
+        if not invalid_ages.empty:
+            error_msg = "❌ Unrealistic ages in rows:\n"
+            for idx, row in invalid_ages.iterrows():
+                error_msg += f"Row {idx}: {row['Name']} {row['Surname']} (Age {row['Age']})\n"
+            return {"error": error_msg, "success": False}
+
         df["Birthday"] = df["Birthday"].dt.strftime('%Y-%m-%d')
 
-
-        # Sort students alphabetically by Name and Surname
+        # Sort students alphabetically
         df = df.sort_values(by=["Name", "Surname"]).reset_index(drop=True)
-        print("Data after sorting:\n", df)  # Debug print
+        print("Data after sorting:\n", df)
 
         # Connect to the database
         conn = get_db_connection()
@@ -459,40 +479,39 @@ def import_students_from_excel(file_path):
 
         try:
             with conn.cursor() as cursor:
-                # Fetch all salles with their capacities, ordered alphabetically
-                cursor.execute("""
-                    SELECT name_salle, capacity 
-                    FROM salles 
-                    ORDER BY name_salle
-                """)
-                salles = cursor.fetchall()
-                print("Available salles:", salles)  # Debug print
+                # Verify salles table
+                cursor.execute("SELECT 1 FROM information_schema.tables WHERE table_name = 'salles'")
+                if not cursor.fetchone():
+                    return {"error": "❌ Table 'salles' does not exist!", "success": False}
 
+                # Fetch salles
+                cursor.execute("SELECT name_salle, capacity FROM salles ORDER BY name_salle")
+                salles = cursor.fetchall()
                 if not salles:
                     return {"error": "❌ No salles found in the database!", "success": False}
 
                 # Initialize salle tracking
-                salle_capacity = {}
-                salle_current_count = {}
-                for salle in salles:
-                    name = salle[0] if isinstance(salle, tuple) else salle['name_salle']
-                    capacity = salle[1] if isinstance(salle, tuple) else salle['capacity']
-                    salle_capacity[name] = capacity
-                    salle_current_count[name] = 0
+                salle_capacity = {salle[0]: salle[1] for salle in salles}
+                salle_current_count = {salle: 0 for salle in salle_capacity}
+                print("Salle capacities:", salle_capacity)
 
-                print("Salle capacities:", salle_capacity)  # Debug print
-
-                total_assigned = 0
-                salle_names = sorted(salle_capacity.keys())  # List of salle names in alphabetical order
-                current_salle_index = 0  # Start with the first salle
+                # Check total capacity
+                total_students = len(df)
+                total_capacity = sum(salle_capacity.values())
+                if total_students > total_capacity:
+                    return {"error": f"❌ Insufficient salle capacity: {total_students} students, {total_capacity} seats!", "success": False}
 
                 # Validate exam options
                 exam_options_result = get_exam_options()
-                if exam_options_result["error"]:
-                    return {"error": exam_options_result["error"], "success": False}
-                valid_exam_options = exam_options_result["data"]
+                if exam_options_result["error"] or not exam_options_result["data"]:
+                    return {"error": f"❌ Exam options error: {exam_options_result['error'] or 'No valid exam options'}", "success": False}
+                valid_exam_options = [opt.upper() for opt in exam_options_result["data"]]
 
-                # Assign students to salles alphabetically
+                total_assigned = 0
+                salle_names = sorted(salle_capacity.keys())
+                current_salle_index = 0
+
+                # Assign students to salles
                 for _, row in df.iterrows():
                     if pd.notnull(row["Name"]) and pd.notnull(row["Surname"]) and pd.notnull(row["Birthday"]):
                         # Find an available salle
@@ -500,9 +519,8 @@ def import_students_from_excel(file_path):
                             current_salle = salle_names[current_salle_index]
                             if salle_current_count[current_salle] < salle_capacity[current_salle]:
                                 break
-                            current_salle_index += 1  # Move to next salle if current is full
+                            current_salle_index += 1
                         
-                        # If no salle is available
                         if current_salle_index >= len(salle_names):
                             return {"error": "❌ No available salle capacity for all students!", "success": False}
 
@@ -510,11 +528,11 @@ def import_students_from_excel(file_path):
                         if row["Exam Option"] not in valid_exam_options:
                             return {"error": f"❌ Invalid exam option '{row['Exam Option']}' for student {row['Name']} {row['Surname']}!", "success": False}
 
-                        # Check for duplicate student
+                        # Check for duplicate
                         cursor.execute(
                             """
                             SELECT id FROM candidats 
-                            WHERE name = %s AND surname = %s AND birthday = %s
+                            WHERE LOWER(name) = LOWER(%s) AND LOWER(surname) = LOWER(%s) AND birthday = %s
                             """,
                             (row["Name"], row["Surname"], row["Birthday"])
                         )
@@ -544,15 +562,20 @@ def import_students_from_excel(file_path):
                         salle_current_count[current_salle] += 1
                         total_assigned += 1
 
-                print(f"Total students assigned: {total_assigned}")  # Debug print
+                print(f"Total students assigned: {total_assigned}")
                 conn.commit()
                 return {"error": None, "success": True}
+
+        except Exception as e:
+            conn.rollback()
+            print(f"❌ Database error: {e}")
+            return {"error": f"❌ Database error: {str(e)}", "success": False}
 
         finally:
             conn.close()
 
     except Exception as e:
-        print(f"❌ Error in import_students_from_excel: {e}")
+        print(f"❌ Import error: {e}")
         traceback.print_exc()
         return {"error": f"❌ Import error: {str(e)}", "success": False}
 
