@@ -422,7 +422,7 @@ def save_student(name, surname, dob, salle_code, exam_option):
 def import_students_from_excel(file_path):
     """
     Import student data from an Excel file, assign them to salles alphabetically,
-    and respect salle capacity.
+    and respect salle capacity. Handles multiple birthday date formats.
 
     Args:
         file_path (str): Path to the Excel file.
@@ -430,6 +430,10 @@ def import_students_from_excel(file_path):
     Returns:
         dict: Dictionary with 'error' (message or None) and 'success' (True/False).
     """
+    import os
+    import pandas as pd
+    import traceback
+
     if not os.path.exists(file_path):
         return {"error": "❌ File does not exist!", "success": False}
 
@@ -438,15 +442,30 @@ def import_students_from_excel(file_path):
         df = pd.read_excel(file_path)
         required_columns = {"Name", "Surname", "Birthday", "Exam option"}
         if not required_columns.issubset(df.columns):
-            return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
+            return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam option", "success": False}
+
+        # Define possible date formats
+        date_formats = [
+            '%d-%m-%Y', '%d/%m/%Y', '%Y-%m-%d', '%Y/%m/%d',
+            '%m-%d-%Y', '%m/%d/%Y', '%d.%m.%Y', '%Y.%m.%d',
+            '%d %b %Y', '%d %B %Y', '%b %d %Y', '%B %d %Y'
+        ]
+
+        # Function to try parsing dates with multiple formats
+        def parse_date(date_str):
+            if pd.isna(date_str):
+                return None
+            for fmt in date_formats:
+                try:
+                    return pd.to_datetime(date_str, format=fmt, errors='coerce').strftime('%Y-%m-%d')
+                except (ValueError, TypeError):
+                    continue
+            return None
 
         # Convert Birthday to proper date format
-        df["Birthday"] = df["Birthday"].astype(str).str.strip()
-        df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce', dayfirst=True)
+        df["Birthday"] = df["Birthday"].apply(parse_date)
         if df["Birthday"].isna().any():
-            return {"error": "❌ Invalid birthday format in some records!","success": False}
-        df["Birthday"] = df["Birthday"].dt.strftime('%Y-%m-%d')
-
+            return {"error": "❌ Invalid birthday format in some records! Supported formats: DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, etc.", "success": False}
 
         # Sort students alphabetically by Name and Surname
         df = df.sort_values(by=["Name", "Surname"]).reset_index(drop=True)
@@ -508,7 +527,7 @@ def import_students_from_excel(file_path):
 
                         # Validate exam option
                         if row["Exam Option"] not in valid_exam_options:
-                            return {"error": f"❌ Invalid exam option '{row['Exam Option']}' for student {row['Name']} {row['Surname']}!", "success": False}
+                            return {"error": f"❌ Invalid exam option '{row['Exam option']}' for student {row['Name']} {row['Surname']}!", "success": False}
 
                         # Check for duplicate student
                         cursor.execute(
@@ -535,7 +554,7 @@ def import_students_from_excel(file_path):
                                 row["Surname"],
                                 row["Birthday"],
                                 anonymous_id,
-                                10.00,
+                                00.00,
                                 'Pending',
                                 0,
                                 current_salle
