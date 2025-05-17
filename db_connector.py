@@ -441,7 +441,8 @@ def import_students_from_excel(file_path):
             return {"error": "❌ Excel file must contain columns: Name, Surname, Birthday, Exam Option", "success": False}
 
         # Convert Birthday to proper date format
-        df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce')
+        df["Birthday"] = df["Birthday"].astype(str).str.strip()
+        df["Birthday"] = pd.to_datetime(df["Birthday"], errors='coerce', dayfirst=True)
         if df["Birthday"].isna().any():
             return {"error": "❌ Invalid birthday format in some records!","success": False}
         df["Birthday"] = df["Birthday"].dt.strftime('%Y-%m-%d')
